@@ -582,9 +582,7 @@
                             <strong>Attachments:</strong> ${email.attachments_count} | <strong>OCR Results:</strong> ${email.ocr_results_count || 0}
                         </div>
                         <div class="email-actions" style="margin-top: 10px;">
-                            <a href="${email.folder_url}" target="_blank" class="btn btn-primary" style="background: #007bff; color: white; text-decoration: none; padding: 8px 16px; border-radius: 4px; display: inline-block; margin-right: 10px;">
-                                🗂️ Open in Azure Storage
-                            </a>
+                            
                             ${email.portal_url ? `<a href="${email.portal_url}" target="_blank" class="btn btn-secondary" style="background: #6c757d; color: white; text-decoration: none; padding: 8px 16px; border-radius: 4px; display: inline-block;">
                                 🌐 Open in Azure Portal
                             </a>` : ''}
