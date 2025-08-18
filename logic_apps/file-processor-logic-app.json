@@ -1,0 +1,246 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "type": "string",
+            "defaultValue": "insurance-file-processor",
+            "metadata": {
+                "description": "Name of the Logic App for file processing"
+            }
+        },
+        "fileProcessorEndpoint": {
+            "type": "string",
+            "metadata": {
+                "description": "URL of the file processor API endpoint"
+            }
+        },
+        "storageAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Azure Storage Account"
+            }
+        },
+        "containerName": {
+            "type": "string",
+            "defaultValue": "insurance-documents",
+            "metadata": {
+                "description": "Name of the blob container"
+            }
+        }
+    },
+    "variables": {
+        "azureBlobConnectionName": "azureblob-files",
+        "requestConnectionName": "request"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "[variables('azureBlobConnectionName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "displayName": "Azure Blob Storage - Files",
+                "customParameterValues": {},
+                "api": {
+                    "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', resourceGroup().location, 'azureblob')]"
+                },
+                "parameterValues": {
+                    "accountName": "[parameters('storageAccountName')]",
+                    "accessKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', variables('azureBlobConnectionName'))]"
+            ],
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_a_blob_is_added_or_modified": {
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(parameters('storageAccountName')))}/triggers/batch/onupdatedfile",
+                                "queries": {
+                                    "folderId": "[concat('/', parameters('containerName'), '/uploads/')]",
+                                    "maxFileCount": 10
+                                }
+                            },
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 2
+                            },
+                            "splitOn": "@triggerBody()"
+                        }
+                    },
+                    "actions": {
+                        "Initialize_variable_-_Processing_ID": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "processingId",
+                                        "type": "string",
+                                        "value": "@{concat('FILE_', formatDateTime(utcNow(), 'yyyyMMdd_HHmmss'), '_', substring(guid(), 0, 8))}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Get_file_metadata": {
+                            "runAfter": {
+                                "Initialize_variable_-_Processing_ID": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(parameters('storageAccountName')))}/files/@{encodeURIComponent(encodeURIComponent(triggerBody()?['Path']))}/metadata"
+                            }
+                        },
+                        "Move_file_to_processing_folder": {
+                            "runAfter": {
+                                "Get_file_metadata": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(parameters('storageAccountName')))}/copyFile",
+                                "queries": {
+                                    "source": "@triggerBody()?['Path']",
+                                    "destination": "[concat('/', parameters('containerName'), '/files/@{variables(''processingId'')}/@{body(''Get_file_metadata'')?[''Name'']}')]",
+                                    "overwrite": true
+                                }
+                            }
+                        },
+                        "Get_file_content": {
+                            "runAfter": {
+                                "Move_file_to_processing_folder": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(parameters('storageAccountName')))}/files/@{encodeURIComponent(encodeURIComponent(body('Move_file_to_processing_folder')?['Path']))}/content"
+                            }
+                        },
+                        "Call_File_Processor_API": {
+                            "runAfter": {
+                                "Get_file_content": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "uri": "[concat(parameters('fileProcessorEndpoint'), '/upload-file')]",
+                                "headers": {
+                                    "Content-Type": "multipart/form-data"
+                                },
+                                "body": {
+                                    "file": "@body('Get_file_content')",
+                                    "filename": "@body('Get_file_metadata')?['Name']",
+                                    "description": "File uploaded via Google Forms integration",
+                                    "metadata": {
+                                        "original_path": "@triggerBody()?['Path']",
+                                        "file_size": "@body('Get_file_metadata')?['Size']",
+                                        "last_modified": "@body('Get_file_metadata')?['LastModified']",
+                                        "processing_id": "@variables('processingId')"
+                                    }
+                                }
+                            }
+                        },
+                        "Delete_original_file": {
+                            "runAfter": {
+                                "Call_File_Processor_API": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                    }
+                                },
+                                "method": "delete",
+                                "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(parameters('storageAccountName')))}/files/@{encodeURIComponent(encodeURIComponent(triggerBody()?['Path']))}"
+                            }
+                        },
+                        "Handle_API_Error": {
+                            "runAfter": {
+                                "Call_File_Processor_API": [
+                                    "Failed"
+                                ]
+                            },
+                            "type": "Compose",
+                            "inputs": {
+                                "error": "Failed to process file via API",
+                                "file_path": "@triggerBody()?['Path']",
+                                "processing_id": "@variables('processingId')",
+                                "error_details": "@body('Call_File_Processor_API')"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureblob": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', variables('azureBlobConnectionName'))]",
+                                "connectionName": "[variables('azureBlobConnectionName')]",
+                                "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', resourceGroup().location, 'azureblob')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "logicAppUrl": {
+            "type": "string",
+            "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '/triggers/When_a_blob_is_added_or_modified'), '2017-07-01').value]"
+        }
+    }
+}
