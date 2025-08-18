@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance AI Agent - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 30px;
+        }
+        
+        .setup-section {
+            margin-bottom: 40px;
+        }
+        
+        .setup-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #2196F3;
+            transition: all 0.3s ease;
+        }
+        
+        .setup-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .setup-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-connected {
+            background-color: #4CAF50;
+        }
+        
+        .status-disconnected {
+            background-color: #f44336;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #2196F3, #21CBF3);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(33, 150, 243, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(45deg, #f44336, #da190b);
+        }
+        
+        .btn-large {
+            padding: 20px 50px;
+            font-size: 20px;
+            margin: 20px 0;
+        }
+        
+        .processing-section {
+            text-align: center;
+            margin: 40px 0;
+        }
+        
+        .results-section {
+            margin-top: 40px;
+        }
+        
+        .email-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #eee;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .email-card h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .email-meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .folder-link {
+            display: inline-block;
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .folder-link:hover {
+            background: #1976d2;
+            color: white;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 Insurance AI Agent</h1>
+            <p>One-click email processing with Azure integration</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- Prerequisites Setup -->
+            <div class="setup-section">
+                <div class="setup-card">
+                    <h3>
+                        <span class="status-indicator {{ 'status-connected' if system_status.prerequisites_installed else 'status-disconnected' }}"></span>
+                        1. Install Prerequisites
+                    </h3>
+                    <p>Install required Python packages for Azure, OCR, and email processing.</p>
+                    <button class="btn" onclick="setupPrerequisites()" id="prereq-btn">
+                        {{ 'Reinstall' if system_status.prerequisites_installed else 'Install Prerequisites' }}
+                    </button>
+                    <div id="prereq-status"></div>
+                </div>
+            </div>
+            
+            <!-- Azure Setup -->
+            <div class="setup-section">
+                <div class="setup-card">
+                    <h3>
+                        <span class="status-indicator {{ 'status-connected' if system_status.azure_connected else 'status-disconnected' }}"></span>
+                        2. Configure Azure Storage
+                    </h3>
+                    
+                    <div class="two-column">
+                        <div class="form-group">
+                            <label for="storage-account">Storage Account Name:</label>
+                            <input type="text" id="storage-account" placeholder="mystorageaccount">
+                        </div>
+                        <div class="form-group">
+                            <label for="storage-key">Storage Account Key:</label>
+                            <input type="password" id="storage-key" placeholder="Account key from Azure portal">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="container-name">Container Name:</label>
+                        <input type="text" id="container-name" value="insurance-emails" placeholder="insurance-emails">
+                    </div>
+                    
+                    <button class="btn" onclick="setupAzure()">Connect to Azure</button>
+                    <div id="azure-status"></div>
+                </div>
+            </div>
+            
+            <!-- Email Setup -->
+            <div class="setup-section">
+                <div class="setup-card">
+                    <h3>
+                        <span class="status-indicator {{ 'status-connected' if system_status.email_connected else 'status-disconnected' }}"></span>
+                        3. Configure Email Access
+                    </h3>
+                    
+                    <p style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #1565c0;">
+                        <strong>📧 Auto-Detection Enabled:</strong> Just enter your email and password. We'll automatically detect your email provider settings (Gmail, Outlook, Yahoo, etc.)
+                        <br><br>
+                        <strong>🔑 For Gmail:</strong> Use an App Password instead of your regular password for better security.
+                    </p>
+                    
+                    <div class="form-group">
+                        <label for="email-username">Email Address:</label>
+                        <input type="email" id="email-username" placeholder="your.email@gmail.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email-password">Password (or App Password):</label>
+                        <input type="password" id="email-password" placeholder="Enter your password or app password" required>
+                    </div>
+                    
+                    <button class="btn" onclick="setupEmail()">Test Email Connection</button>
+                    <div id="email-status"></div>
+                    
+                    <!-- Unread Emails Preview -->
+                    <div id="unread-emails-section" style="display: none; margin-top: 20px;">
+                        <h4>📬 Unread Emails Preview</h4>
+                        <button class="btn btn-secondary" onclick="loadUnreadEmails()">Check Unread Emails</button>
+                        <div id="unread-emails-list"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Processing Section -->
+            <div class="processing-section">
+                <h2>🚀 Email Processing</h2>
+                <p>Process unread emails and extract documents with OCR</p>
+                
+                <button class="btn btn-large btn-success" onclick="startProcessing()" id="process-btn" 
+                        {{ 'disabled' if not (system_status.azure_connected and system_status.email_connected) else '' }}>
+                    {{ 'Processing...' if system_status.processing_active else 'Start Email Processing' }}
+                </button>
+                
+                <button class="btn btn-large btn-danger" onclick="stopProcessing()" id="stop-btn" style="display: none;">
+                    Stop Processing
+                </button>
+                
+                <div id="processing-status"></div>
+            </div>
+            
+            <!-- Results Section -->
+            <div class="results-section" id="results-section" style="display: none;">
+                <h2>📧 Processed Emails</h2>
+                <div id="processed-emails"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let statusInterval = null;
+        
+        async function setupPrerequisites() {
+            const btn = document.getElementById('prereq-btn');
+            const status = document.getElementById('prereq-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Installing...';
+            
+            try {
+                const response = await fetch('/setup/prerequisites', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    status.innerHTML = '<div class="alert alert-success">✅ All prerequisites installed successfully!</div>';
+                    location.reload(); // Refresh to update status
+                } else {
+                    status.innerHTML = `<div class="alert alert-error">⚠️ ${result.message || 'Some packages failed to install'}</div>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = 'Install Prerequisites';
+        }
+        
+        async function setupAzure() {
+            const storageAccount = document.getElementById('storage-account').value;
+            const storageKey = document.getElementById('storage-key').value;
+            const containerName = document.getElementById('container-name').value;
+            const status = document.getElementById('azure-status');
+            
+            if (!storageAccount || !storageKey) {
+                status.innerHTML = '<div class="alert alert-error">Please fill in all Azure credentials</div>';
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('storage_account', storageAccount);
+                formData.append('storage_key', storageKey);
+                formData.append('container_name', containerName);
+                
+                const response = await fetch('/setup/azure', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    status.innerHTML = '<div class="alert alert-success">✅ Azure Storage connected successfully!</div>';
+                    location.reload();
+                } else {
+                    status.innerHTML = `<div class="alert alert-error">❌ ${result.message}</div>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function setupEmail() {
+            const username = document.getElementById('email-username').value;
+            const password = document.getElementById('email-password').value;
+            const status = document.getElementById('email-status');
+            
+            if (!username || !password) {
+                status.innerHTML = '<div class="alert alert-error">Please enter both email and password</div>';
+                return;
+            }
+            
+            status.innerHTML = '<div class="alert alert-info">🔍 Testing email connection with auto-detected settings...</div>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+                
+                const response = await fetch('/setup/email', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    status.innerHTML = `<div class="alert alert-success">${result.message}<br>
+                    📧 Provider: ${result.provider}<br>
+                    📬 Total emails: ${result.total_emails}, Unread: ${result.unread_emails}</div>`;
+                    
+                    // Show unread emails section
+                    document.getElementById('unread-emails-section').style.display = 'block';
+                    
+                    // Auto-load unread emails if there are any
+                    if (result.unread_emails > 0) {
+                        setTimeout(loadUnreadEmails, 1000);
+                    } else {
+                        document.getElementById('unread-emails-list').innerHTML = 
+                            '<div class="alert alert-info">📪 No unread emails found.</div>';
+                    }
+                    
+                    location.reload();
+                } else {
+                    status.innerHTML = `<div class="alert alert-error">❌ Connection Failed: ${result.message}<br><br>
+                    <strong>💡 Troubleshooting Tips:</strong><br>
+                    • For Gmail: Use an App Password, not your regular password<br>
+                    • Make sure IMAP is enabled in your email settings<br>
+                    • Check if 2-factor authentication is required</div>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="alert alert-error">❌ Network Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function startProcessing() {
+            const btn = document.getElementById('process-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const status = document.getElementById('processing-status');
+            
+            try {
+                const response = await fetch('/process/start', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    btn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
+                    status.innerHTML = '<div class="alert alert-success">🔄 Processing emails...</div>';
+                    
+                    // Start monitoring status
+                    startStatusMonitoring();
+                } else {
+                    status.innerHTML = `<div class="alert alert-error">❌ ${result.message}</div>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function stopProcessing() {
+            try {
+                await fetch('/process/stop', { method: 'POST' });
+                location.reload();
+            } catch (error) {
+                console.error('Error stopping processing:', error);
+            }
+        }
+        
+        async function loadUnreadEmails() {
+            const unreadList = document.getElementById('unread-emails-list');
+            
+            unreadList.innerHTML = '<div class="loader"></div> Loading unread emails...';
+            
+            try {
+                const response = await fetch('/api/unread-emails');
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    if (result.unread_count === 0) {
+                        unreadList.innerHTML = '<div class="alert alert-info">📪 No unread emails found.</div>';
+                    } else {
+                        let emailsHtml = `<div class="alert alert-success">${result.message}</div>`;
+                        emailsHtml += '<div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">';
+                        
+                        result.unread_emails.forEach((email, index) => {
+                            emailsHtml += `
+                                <div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 5px; background: #f9f9f9;">
+                                    <strong>📧 ${email.subject}</strong><br>
+                                    <small>From: ${email.from}</small><br>
+                                    <small>Date: ${email.date}</small><br>
+                                    <small>ID: ${email.id}</small>
+                                </div>
+                            `;
+                        });
+                        
+                        if (result.unread_count > result.showing_count) {
+                            emailsHtml += `<div style="text-align: center; padding: 10px; color: #666;">
+                                ... and ${result.unread_count - result.showing_count} more emails
+                            </div>`;
+                        }
+                        
+                        emailsHtml += '</div>';
+                        unreadList.innerHTML = emailsHtml;
+                    }
+                } else {
+                    unreadList.innerHTML = `<div class="alert alert-error">❌ ${result.message}</div>`;
+                }
+                
+            } catch (error) {
+                unreadList.innerHTML = `<div class="alert alert-error">❌ Error loading unread emails: ${error.message}</div>`;
+            }
+        }
+
+        function startStatusMonitoring() {
+            statusInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const data = await response.json();
+                    
+                    if (!data.system_status.processing_active) {
+                        clearInterval(statusInterval);
+                        location.reload();
+                    }
+                    
+                    updateProcessedEmails(data.latest_emails);
+                } catch (error) {
+                    console.error('Status monitoring error:', error);
+                }
+            }, 2000);
+        }
+        
+        function updateProcessedEmails(emails) {
+            const resultsSection = document.getElementById('results-section');
+            const processedEmailsDiv = document.getElementById('processed-emails');
+            
+            if (emails && emails.length > 0) {
+                resultsSection.style.display = 'block';
+                
+                processedEmailsDiv.innerHTML = emails.map(email => `
+                    <div class="email-card" style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: #f9f9f9;">
+                        <h4 style="margin: 0 0 10px 0; color: #333;">📧 ${email.subject}</h4>
+                        <div class="email-meta" style="color: #666; margin-bottom: 10px;">
+                            <strong>From:</strong> ${email.from}<br>
+                            <strong>Date:</strong> ${email.date}<br>
+                            <strong>Attachments:</strong> ${email.attachments_count} | <strong>OCR Results:</strong> ${email.ocr_results_count || 0}
+                        </div>
+                        <div class="email-actions" style="margin-top: 10px;">
+                            <a href="${email.folder_url}" target="_blank" class="btn btn-primary" style="background: #007bff; color: white; text-decoration: none; padding: 8px 16px; border-radius: 4px; display: inline-block; margin-right: 10px;">
+                                🗂️ Open in Azure Storage
+                            </a>
+                            ${email.portal_url ? `<a href="${email.portal_url}" target="_blank" class="btn btn-secondary" style="background: #6c757d; color: white; text-decoration: none; padding: 8px 16px; border-radius: 4px; display: inline-block;">
+                                🌐 Open in Azure Portal
+                            </a>` : ''}
+                            <div style="margin-top: 8px;">
+                                <small style="color: #888;">📁 Folder: ${email.folder_name}</small>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                if (resultsSection.style.display === 'block') {
+                    processedEmailsDiv.innerHTML = '<div class="alert alert-info">No processed emails yet. Start processing to see results here.</div>';
+                }
+            }
+        }
+
+        async function loadAllProcessedEmails() {
+            try {
+                const response = await fetch('/api/processed-emails');
+                const data = await response.json();
+                
+                if (data.emails && data.emails.length > 0) {
+                    updateProcessedEmails(data.emails);
+                    document.getElementById('results-section').style.display = 'block';
+                } else {
+                    const resultsSection = document.getElementById('results-section');
+                    const processedEmailsDiv = document.getElementById('processed-emails');
+                    resultsSection.style.display = 'block';
+                    processedEmailsDiv.innerHTML = '<div class="alert alert-info">📭 No processed emails yet. Start processing to see results here.</div>';
+                }
+            } catch (error) {
+                console.error('Error loading processed emails:', error);
+            }
+        }
+        
+        // Load initial status and processed emails
+        window.onload = function() {
+            loadAllProcessedEmails();
+            
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.latest_emails && data.latest_emails.length > 0) {
+                        updateProcessedEmails(data.latest_emails);
+                    }
+                });
+        };
+    </script>
+</body>
+</html>
