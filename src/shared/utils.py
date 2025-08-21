@@ -166,3 +166,61 @@ def send_to_service_bus(message: dict, queue_name: Optional[str] = None):
     except Exception as e:
         logger.error(f"Error sending message to Service Bus: {str(e)}")
         raise
+
+
+def auto_detect_email_provider(email_address: str) -> dict:
+    """
+    Auto-detect email provider settings based on email address.
+    
+    Args:
+        email_address: The user's email address
+    
+    Returns:
+        dict: Email provider configuration with host, port, and provider name
+    """
+    domain = email_address.split('@')[1].lower()
+    
+    # Common email provider configurations
+    provider_configs = {
+        'gmail.com': {
+            'provider': 'Gmail',
+            'host': 'imap.gmail.com',
+            'port': 993
+        },
+        'outlook.com': {
+            'provider': 'Outlook',
+            'host': 'outlook.office365.com',
+            'port': 993
+        },
+        'hotmail.com': {
+            'provider': 'Outlook',
+            'host': 'outlook.office365.com',
+            'port': 993
+        },
+        'live.com': {
+            'provider': 'Outlook',
+            'host': 'outlook.office365.com',
+            'port': 993
+        },
+        'yahoo.com': {
+            'provider': 'Yahoo',
+            'host': 'imap.mail.yahoo.com',
+            'port': 993
+        },
+        'aol.com': {
+            'provider': 'AOL',
+            'host': 'imap.aol.com',
+            'port': 993
+        }
+    }
+    
+    # Check if domain matches a known provider
+    if domain in provider_configs:
+        return provider_configs[domain]
+    
+    # Default to generic IMAP settings for unknown providers
+    return {
+        'provider': 'Generic IMAP',
+        'host': f'imap.{domain}',
+        'port': 993
+    }

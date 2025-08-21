@@ -10,15 +10,15 @@ def main():
     print("🏢 Insurance AI Agent - Web UI")
     print("=" * 60)
     print("🚀 Starting web server...")
-    print("📱 Open your browser and go to: http://localhost:8080")
+    print("📱 Open your browser and go to: http://localhost:5001")
     print("🛑 Press Ctrl+C to stop the server")
     print("=" * 60)
     
     try:
         uvicorn.run(
             "ui_app:app", 
-            host="0.0.0.0", 
-            port=8080, 
+            host="127.0.0.1", 
+            port=5001, 
             reload=True,
             log_level="info"
         )
