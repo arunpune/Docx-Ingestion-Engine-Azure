@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance AI Agent - Simple Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #666;
+            margin: 10px 0 0 0;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .status-card {
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status-ready {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .setup-section {
+            margin: 30px 0;
+            padding: 25px;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .alert-info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        .process-section {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .hidden {
+            display: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Insurance AI Agent</h1>
+            <p>Automated Email Processing - Simple Setup</p>
+        </div>
+
+        <!-- System Status -->
+        <div class="status-grid">
+            <div class="status-card status-ready">
+                <div>📦 Dependencies</div>
+                <div>Auto-Installed</div>
+            </div>
+            <div class="status-card status-ready">
+                <div>☁️ Azure</div>
+                <div>Pre-Configured</div>
+            </div>
+            <div class="status-card {% if system_status.email_connected %}status-ready{% else %}status-pending{% endif %}">
+                <div>📧 Email</div>
+                <div>{% if system_status.email_connected %}Connected{% else %}Waiting{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Email Setup Only -->
+        <div class="setup-section">
+            <h3>📧 Connect Your Email</h3>
+            <p>Enter your email and app password. Dependencies and Azure are already configured!</p>
+            
+            <form id="emailForm">
+                <div class="form-group">
+                    <label for="email_address">Email Address:</label>
+                    <input type="email" id="email_address" name="email_address" required placeholder="your.email@gmail.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="app_password">App Password:</label>
+                    <input type="password" id="app_password" name="app_password" required placeholder="Your app-specific password">
+                    <small style="color: #666; font-size: 14px;">
+                        For Gmail: <a href="https://support.google.com/accounts/answer/185833" target="_blank">Create App Password</a><br>
+                        For Outlook: <a href="https://support.microsoft.com/en-us/account-billing/using-app-passwords-with-apps-that-don-t-support-two-step-verification-5896ed9b-4263-e681-128a-a6f2979a7944" target="_blank">Create App Password</a>
+                    </small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="emailBtn">
+                    <span id="emailText">Connect & Process Emails</span>
+                    <span id="emailLoading" class="loading hidden"></span>
+                </button>
+            </form>
+            
+            <div id="emailResult"></div>
+        </div>
+
+        <!-- Process Emails -->
+        <div class="process-section">
+            <h3>🔄 Start Processing Emails</h3>
+            <p>Once connected, click below to start processing your unread emails.</p>
+            <button class="btn btn-success" onclick="processEmails()" id="processBtn" disabled>
+                <span id="processText">Start Processing Emails</span>
+                <span id="processLoading" class="loading hidden"></span>
+            </button>
+            <div id="processResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // Email setup and processing form handler
+        document.getElementById('emailForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('emailBtn');
+            const text = document.getElementById('emailText');
+            const loading = document.getElementById('emailLoading');
+            const result = document.getElementById('emailResult');
+            
+            btn.disabled = true;
+            text.classList.add('hidden');
+            loading.classList.remove('hidden');
+            
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/process/emails', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    let resultHtml = `<div class="alert alert-success">✅ ${data.message}<br>📧 Provider: ${data.email_provider}</div>`;
+                    
+                    if (data.processed_emails && data.processed_emails.length > 0) {
+                        resultHtml += '<div style="margin-top: 20px;"><h4>📬 Processed Emails:</h4>';
+                        data.processed_emails.forEach(email => {
+                            resultHtml += `
+                                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: #f9f9f9;">
+                                    <div><strong>📧 Subject:</strong> ${email.subject || 'No Subject'}</div>
+                                    <div><strong>👤 From:</strong> ${email.from || 'Unknown'}</div>
+                                    <div><strong>📅 Date:</strong> ${email.date || 'Unknown'}</div>
+                                    <div><strong>🆔 CosmosDB Document ID:</strong> <code>${email.cosmos_document_id || 'Not saved'}</code></div>
+                                    <div><strong>🔗 Blob URL:</strong> <a href="${email.email_blob_url}" target="_blank" style="word-break: break-all;">${email.email_blob_url}</a></div>
+                                    <div><strong>📎 Attachments:</strong> ${email.attachments_count || 0}</div>
+                                    <div><strong>✅ Ingestion Status:</strong> ${email.ingestion_processed ? '✅ Success' : '❌ Failed'}</div>
+                                    ${email.ingestion_error ? `<div style="color: red;"><strong>❌ Error:</strong> ${email.ingestion_error}</div>` : ''}
+                                </div>
+                            `;
+                        });
+                        resultHtml += '</div>';
+                    }
+                    
+                    result.innerHTML = resultHtml;
+                    // Hide the process section since it's done automatically
+                    document.querySelector('.process-section').style.display = 'none';
+                } else {
+                    result.innerHTML = `<div class="alert alert-error">❌ ${data.detail || data.message}</div>`;
+                }
+                
+            } catch (error) {
+                result.innerHTML = `<div class="alert alert-error">❌ Processing failed: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                text.classList.remove('hidden');
+                loading.classList.add('hidden');
+            }
+        });
+
+        // Process emails function
+        async function processEmails() {
+            const btn = document.getElementById('processBtn');
+            const text = document.getElementById('processText');
+            const loading = document.getElementById('processLoading');
+            const result = document.getElementById('processResult');
+            
+            btn.disabled = true;
+            text.classList.add('hidden');
+            loading.classList.remove('hidden');
+            
+            try {
+                const response = await fetch('/process/emails', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    result.innerHTML = `
+                        <div class="alert alert-success">
+                            ✅ Successfully processed ${data.processed} out of ${data.total_found} emails!
+                            ${data.errors.length > 0 ? `<br>⚠️ ${data.errors.length} errors occurred.` : ''}
+                        </div>
+                    `;
+                } else {
+                    result.innerHTML = `<div class="alert alert-error">❌ ${data.message}</div>`;
+                }
+                
+            } catch (error) {
+                result.innerHTML = `<div class="alert alert-error">❌ Processing failed: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                text.classList.remove('hidden');
+                loading.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

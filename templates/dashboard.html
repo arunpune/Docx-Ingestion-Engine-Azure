@@ -329,6 +329,32 @@
                 </div>
             </div>
             
+            <!-- Ingestion Engine Setup -->
+            <div class="setup-section">
+                <div class="setup-card">
+                    <h3>
+                        <span class="status-indicator {{ 'status-connected' if system_status.ingestion_engine_connected else 'status-disconnected' }}"></span>
+                        4. Initialize Ingestion Engine
+                    </h3>
+                    
+                    <p style="background: #f3e5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #7b1fa2;">
+                        <strong>🔧 Ingestion Engine:</strong> Processes emails and stores them in CosmosDB with Service Bus integration for OCR processing.
+                        <br><br>
+                        <strong>💾 Database:</strong> Uses Azure CosmosDB to store email metadata and attachment information.
+                    </p>
+                    
+                    <button class="btn" onclick="setupIngestion()">Initialize Ingestion Engine</button>
+                    <div id="ingestion-status"></div>
+                    
+                    <!-- Ingestion Engine Status Details -->
+                    <div id="ingestion-details" style="display: none; margin-top: 20px;">
+                        <h4>🔍 Ingestion Engine Status</h4>
+                        <button class="btn btn-secondary" onclick="checkIngestionStatus()">Check Status</button>
+                        <div id="ingestion-details-content"></div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Processing Section -->
             <div class="processing-section">
                 <h2>🚀 Email Processing</h2>
@@ -467,6 +493,56 @@
                 }
             } catch (error) {
                 status.innerHTML = `<div class="alert alert-error">❌ Network Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function setupIngestion() {
+            const btn = event.target;
+            const status = document.getElementById('ingestion-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = 'Initializing...';
+            status.innerHTML = '<div class="alert alert-info">🔧 Initializing ingestion engine...</div>';
+            
+            try {
+                const response = await fetch('/setup/ingestion', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    status.innerHTML = '<div class="alert alert-success">✅ Ingestion engine initialized successfully!</div>';
+                    document.getElementById('ingestion-details').style.display = 'block';
+                    setTimeout(checkIngestionStatus, 1000);
+                } else {
+                    status.innerHTML = `<div class="alert alert-error">❌ Failed to initialize: ${result.message}</div>`;
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="alert alert-error">❌ Network Error: ${error.message}</div>`;
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = 'Initialize Ingestion Engine';
+        }
+        
+        async function checkIngestionStatus() {
+            const content = document.getElementById('ingestion-details-content');
+            
+            try {
+                const response = await fetch('/api/ingestion/status');
+                const result = await response.json();
+                
+                let statusClass = 'alert-info';
+                if (result.status === 'connected') statusClass = 'alert-success';
+                else if (result.status === 'error') statusClass = 'alert-error';
+                
+                content.innerHTML = `
+                    <div class="alert ${statusClass}">
+                        <strong>Status:</strong> ${result.status}<br>
+                        <strong>Message:</strong> ${result.message}<br>
+                        <strong>Engine Initialized:</strong> ${result.engine_initialized ? 'Yes' : 'No'}
+                    </div>
+                `;
+            } catch (error) {
+                content.innerHTML = `<div class="alert alert-error">❌ Error checking status: ${error.message}</div>`;
             }
         }
         
