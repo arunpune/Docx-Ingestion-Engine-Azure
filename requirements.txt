@@ -1,44 +1,70 @@
-# Core Web Framework
-fastapi
-uvicorn
-jinja2
-python-multipart
-aiofiles
+# ==========================================================================
+# INSURANCE AI AGENT - PYTHON DEPENDENCIES
+# ==========================================================================
+# Author: Rachit Patekar
+# 
+# This file contains all Python package dependencies required for the
+# Insurance AI Agent system. Packages are organized by functionality
+# with version pinning for stability and reproducibility.
+#
+# Installation: pip install -r requirements.txt
+# 
+# System Requirements:
+# - Python 3.8+
+# - Azure account with appropriate service access
+# - Windows/Linux/macOS compatible
+# ==========================================================================
 
-# Azure Storage
-azure-storage-blob
-azure-identity
-azure-keyvault-secrets
-azure-servicebus
-azure-cosmos
-azure-ai-formrecognizer
+# ========== CORE WEB FRAMEWORK ==========
+# FastAPI and related packages for web application and API development
+fastapi==0.109.0          # Modern, fast web framework for building APIs
+uvicorn==0.27.0           # ASGI server for running FastAPI applications
+jinja2==3.1.2             # Template engine for HTML rendering
+python-multipart==0.0.6   # Form data parsing for file uploads
+aiofiles==23.2.1          # Asynchronous file operations
+
+# ========== CONFIGURATION AND ENVIRONMENT ==========
+# Environment and configuration management packages
+python-dotenv==1.0.0      # Load environment variables from .env files
+pydantic==2.5.3           # Data validation and settings management
+pydantic-settings         # Pydantic settings management for configuration
+
+# ========== HTTP CLIENT LIBRARIES ==========
+# HTTP client libraries for external API communication
+requests==2.31.0          # HTTP library for Python (synchronous)
+httpx==0.26.0             # Modern async HTTP client for Python
+
+# ========== DATABASE AND ORM ==========
+# Database connectivity and object-relational mapping
+sqlalchemy==2.0.25        # SQL toolkit and ORM for Python
+alembic                   # Database migration tool for SQLAlchemy
+
+# ========== EMAIL PROCESSING ==========
+# Email handling and validation utilities
+email-validator           # Email address validation and normalization
+
+# ========== AZURE CLOUD SERVICES ==========
+# Microsoft Azure SDK packages for cloud service integration
+azure-storage-blob==12.19.0    # Azure Blob Storage client for file management
+azure-identity==1.15.0         # Azure authentication and identity management
+azure-keyvault-secrets==4.7.0  # Azure Key Vault for secure credential storage
+azure-servicebus==7.11.4       # Azure Service Bus for message queuing
+azure-cosmos                   # Azure Cosmos DB client for NoSQL database
+azure-ai-formrecognizer        # Azure Form Recognizer for intelligent document processing
 azure-core
 
-# Database
-sqlalchemy
-alembic
-
-# Configuration and Environment
-python-dotenv
-pydantic-settings
-
-# HTTP Requests
-requests
-httpx
-
-# Email Processing
-email-validator
-
 # OCR and Document Processing
-Pillow
-PyPDF2
+Pillow==10.2.0
+PyPDF2==3.0.1
 pdfplumber
-pytesseract
+pytesseract==0.3.10
 PyMuPDF
 pdf2image
 
-# AI/ML
-openai
+# ========== AI/ML SERVICES ==========
+# Artificial Intelligence and Machine Learning packages for document classification
+openai==1.10.0             # OpenAI GPT models for document classification
+google-generativeai        # Google Gemini AI for enhanced document understanding
 
 # Background Processing
 celery
@@ -51,10 +77,10 @@ databricks-sql-connector
 azure-functions
 
 # Testing
-pytest
-pytest-asyncio
+pytest==8.0.0
+pytest-asyncio==0.23.4
 
 # Development Tools
-black
-flake8
+black==24.1.1
+flake8==7.0.0
 mypy

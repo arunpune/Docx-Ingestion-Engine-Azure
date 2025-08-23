@@ -3,6 +3,7 @@ applyTo: "**"
 ---
 
 # 🔧 Copilot Rules for This Project
+<!-- Author: Utsav Pat -->
 
 These rules must always be applied when Copilot generates or completes code.
 

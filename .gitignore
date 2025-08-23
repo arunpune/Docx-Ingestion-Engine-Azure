@@ -1,3 +1,6 @@
+# Insurance AI Agent - Git Ignore Configuration
+# Author: Rachit Patekar
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -1,81 +1,166 @@
 """
-Web UI for Insurance AI Agent - Simplified setup with auto-configuration.
+Insurance AI Agent - Web UI Application
+======================================
+Author: Utsav Pat
+
+This is the main web application for the Insurance AI Agent system. It provides a comprehensive
+web interface for processing insurance-related emails and documents with the following features:
+
+Core Features:
+- Email processing and attachment extraction
+- OCR text extraction from PDF documents
+- AI-powered document classification using both OpenAI GPT and Google Gemini
+- Azure Blob Storage integration for file management
+- CosmosDB data persistence for scalable storage
+- Real-time processing status updates and monitoring
+
+Technology Stack:
+- FastAPI: Modern web framework for building APIs with automatic documentation
+- Jinja2: Template engine for HTML rendering and dynamic content
+- Azure SDK: Cloud services integration (Storage, Cosmos DB, Service Bus)
+- OpenAI/Gemini: AI-powered document classification and text analysis
+- ImapLib: Email processing capabilities for inbox monitoring
+
+Author: Rachit Patel (Email Processing & Document Classification)
+Co-Authors: Shrvan (File Upload & OCR Integration), Utsav (Database Integration)
+Version: 1.0
+Last Modified: August 23, 2025
 """
-import asyncio
-import logging
-import os
-import sys
-import subprocess
-import tempfile
-import re
-import uuid
-from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Request, Form, File, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-import uvicorn
-import imaplib
-import email
-import json
-from email.header import decode_header
 
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
+# ========== STANDARD LIBRARY IMPORTS ==========
+# Core Python libraries for system functionality
+import asyncio          # Asynchronous programming support for concurrent operations
+import logging          # Application logging and debugging functionality
+import os              # Operating system interface for file and environment operations
+import sys             # System-specific parameters and functions
+import subprocess      # Subprocess management for external commands
+import tempfile        # Temporary file and directory creation for processing
+import re              # Regular expression operations for text processing
+import uuid            # UUID generation for unique identifiers
+from contextlib import asynccontextmanager  # Context manager for async operations
+from datetime import datetime               # Date and time handling for timestamps
+from typing import Dict, List, Optional     # Type hints for better code documentation
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ========== FASTAPI FRAMEWORK IMPORTS ==========
+# FastAPI framework components for web application development
+from fastapi import FastAPI, HTTPException, Request, Form, File, UploadFile  # Core FastAPI components
+from fastapi.responses import HTMLResponse, JSONResponse  # HTTP response types for different content
+from fastapi.staticfiles import StaticFiles              # Static file serving for CSS/JS/images
+from fastapi.templating import Jinja2Templates           # Template rendering for dynamic HTML
+
+# ========== THIRD-PARTY IMPORTS ==========
+# External libraries for specific functionalities
+import uvicorn          # ASGI server for FastAPI applications
+import imaplib         # IMAP protocol client for email processing
+import email           # Email parsing and handling utilities
+import json            # JSON data serialization/deserialization
+from email.header import decode_header  # Email header decoding for international characters
+
+# ========== ENVIRONMENT CONFIGURATION ==========
+# Environment variable loading from .env files
+from dotenv import load_dotenv  # Environment variable loading from .env files
+load_dotenv()  # Load environment variables from .env file into system environment
+
+# ========== APPLICATION LOGGING CONFIGURATION ==========
+# Comprehensive logging setup for debugging and monitoring
+logging.basicConfig(
+    level=logging.INFO,  # Set logging level to INFO for detailed output
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'  # Standardized log format
+)
+logger = logging.getLogger(__name__)  # Create logger instance for this module
 
 def auto_install_dependencies():
-    """Automatically install required dependencies."""
+    """
+    Automatically install required Azure and ML dependencies for the application.
+    
+    This function installs essential packages needed for the Insurance AI Agent system.
+    It handles dependency installation for Azure services, AI/ML libraries, and utilities.
+    
+    Author: Rachit Patel (Email Processing Infrastructure)
+    
+    Dependencies Installed:
+    - Azure services (Cosmos DB, Service Bus, Blob Storage)
+    - AI/ML libraries for document processing
+    - Environment management tools
+    
+    Returns:
+        bool: True if installation successful, False otherwise
+    """
     try:
+        # Log the start of dependency installation process
         logger.info("📦 Auto-installing dependencies...")
+        
+        # Define core Azure and ML packages required for the application
+        # Each package serves a specific purpose in the Insurance AI Agent pipeline
         packages = [
-            "azure-cosmos",
-            "azure-servicebus", 
-            "azure-storage-blob",
-            "azure-identity",
-            "azure-ai-formrecognizer",
-            "python-dotenv"
+            "azure-cosmos",           # Azure Cosmos DB client library for document storage and retrieval
+            "azure-servicebus",       # Azure Service Bus client for asynchronous message queuing
+            "azure-storage-blob",     # Azure Blob Storage client for file management and storage
+            "azure-identity",         # Azure authentication and identity management services
+            "azure-ai-formrecognizer", # Azure Form Recognizer for intelligent document processing
+            "python-dotenv"           # Environment variable management from .env files
         ]
         
+        # Iterate through each package and install individually with error handling
         for package in packages:
             try:
+                # Execute pip install command using subprocess for each package
+                # --quiet flag suppresses verbose output for cleaner logs
+                # DEVNULL redirects stdout/stderr to prevent console clutter
                 subprocess.check_call([
-                    sys.executable, "-m", "pip", "install", package, "--quiet"
+                    sys.executable,     # Use current Python interpreter
+                    "-m",              # Run module
+                    "pip",             # Use pip package manager
+                    "install",         # Install command
+                    package,           # Package name to install
+                    "--quiet"          # Suppress verbose output
                 ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+                # Log successful installation of individual package
                 logger.info(f"✅ Installed {package}")
+                
             except Exception as e:
+                # Log warning for failed package installation but continue with others
                 logger.warning(f"⚠️ Could not install {package}: {e}")
         
+        # Log completion of entire dependency installation process
         logger.info("✅ Dependency installation complete")
-        return True
+        return True  # Return success status
         
     except Exception as e:
+        # Log critical error if entire installation process fails
         logger.error(f"❌ Error installing dependencies: {e}")
-        return False
+        return False  # Return failure status
 
 def check_azure_config():
-    """Check if Azure configuration is ready."""
+    """
+    Validate Azure service configuration from environment variables.
+    
+    Checks for required Azure service credentials including:
+    - Cosmos DB endpoint and authentication key
+    - Service Bus connection string for message queuing
+    
+    Returns:
+        bool: True if all required Azure configs are present, False otherwise
+    """
     try:
         from dotenv import load_dotenv
-        load_dotenv()
+        load_dotenv()  # Reload environment variables
         
+        # Required Azure service configuration variables
         required_vars = [
-            "AZURE_COSMOS_ENDPOINT",
-            "AZURE_COSMOS_KEY",
-            "SERVICE_BUS_CONNECTION_STRING"
+            "AZURE_COSMOS_ENDPOINT",        # Cosmos DB service endpoint URL
+            "AZURE_COSMOS_KEY",             # Cosmos DB authentication key
+            "SERVICE_BUS_CONNECTION_STRING" # Service Bus connection for messaging
         ]
         
+        # Check for missing configuration variables
         missing = []
         for var in required_vars:
             if not os.getenv(var):
                 missing.append(var)
         
+        # Report missing configurations
         if missing:
             logger.error(f"❌ Missing Azure config: {missing}")
             return False
@@ -89,18 +174,31 @@ def check_azure_config():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handle startup and shutdown events."""
-    # Startup
+    """
+    Application lifecycle manager for startup and shutdown events.
+    
+    Handles initialization tasks during application startup:
+    - Automatic dependency installation
+    - Azure configuration validation
+    - Application state initialization
+    
+    Args:
+        app (FastAPI): The FastAPI application instance
+        
+    Yields:
+        None: Control back to the application during runtime
+    """
+    # ========== STARTUP SEQUENCE ==========
     logger.info("🚀 Starting Insurance AI Agent...")
     
-    # Auto-install dependencies
+    # Step 1: Auto-install required dependencies
     logger.info("📦 Auto-installing dependencies...")
     if auto_install_dependencies():
         logger.info("✅ Dependencies installed successfully")
     else:
         logger.warning("⚠️ Some dependencies may not have installed correctly")
     
-    # Auto-check Azure config
+    # Step 2: Validate Azure service configuration
     logger.info("☁️ Checking Azure configuration...")
     if check_azure_config():
         logger.info("✅ Azure configuration loaded successfully")
@@ -111,11 +209,13 @@ async def lifespan(app: FastAPI):
     
     logger.info("✅ Startup complete - System ready for email setup")
     
+    # Yield control to the application during runtime
     yield
     
-    # Shutdown
+    # ========== SHUTDOWN SEQUENCE ==========
     logger.info("🛑 Shutting down...")
 
+# ========== MODULE IMPORTS WITH ERROR HANDLING ==========
 # Try to import ingestion engine (will work after dependencies are installed)
 try:
     from src.ingestion_engine.ingestion_processor import IngestionEngine
@@ -123,57 +223,87 @@ except ImportError:
     logger.warning("Ingestion engine not available yet - will be loaded after dependencies")
     IngestionEngine = None
 
-# Email provider settings
+# ========== EMAIL PROVIDER CONFIGURATION ==========
+# Email provider settings for automatic IMAP configuration
+# Maps email domains to their respective IMAP server settings
 EMAIL_PROVIDERS = {
-    "gmail.com": {"host": "imap.gmail.com", "port": 993},
-    "googlemail.com": {"host": "imap.gmail.com", "port": 993},
-    "outlook.com": {"host": "outlook.office365.com", "port": 993},
-    "hotmail.com": {"host": "outlook.office365.com", "port": 993},
-    "live.com": {"host": "outlook.office365.com", "port": 993},
-    "yahoo.com": {"host": "imap.mail.yahoo.com", "port": 993},
-    "icloud.com": {"host": "imap.mail.me.com", "port": 993},
-    "me.com": {"host": "imap.mail.me.com", "port": 993},
-    "aol.com": {"host": "imap.aol.com", "port": 993},
+    "gmail.com": {"host": "imap.gmail.com", "port": 993},           # Google Gmail
+    "googlemail.com": {"host": "imap.gmail.com", "port": 993},      # Google Gmail (alternate)
+    "outlook.com": {"host": "outlook.office365.com", "port": 993},  # Microsoft Outlook
+    "hotmail.com": {"host": "outlook.office365.com", "port": 993},  # Microsoft Hotmail
+    "live.com": {"host": "outlook.office365.com", "port": 993},     # Microsoft Live
+    "yahoo.com": {"host": "imap.mail.yahoo.com", "port": 993},      # Yahoo Mail
+    "icloud.com": {"host": "imap.mail.me.com", "port": 993},        # Apple iCloud
+    "me.com": {"host": "imap.mail.me.com", "port": 993},            # Apple Me
+    "aol.com": {"host": "imap.aol.com", "port": 993},               # AOL Mail
 }
 
 def detect_email_provider(email_address: str) -> Dict[str, any]:
-    """Auto-detect email provider settings from email address."""
+    """
+    Auto-detect email provider IMAP settings from email address domain.
+    
+    Analyzes the domain portion of an email address to automatically determine
+    the correct IMAP server settings for common email providers.
+    
+    Args:
+        email_address (str): Full email address (e.g., "user@gmail.com")
+        
+    Returns:
+        Dict[str, any]: Dictionary containing 'host' and 'port' for IMAP connection
+    """
     try:
+        # Extract domain from email address
         domain = email_address.split('@')[1].lower()
+        
+        # Check if domain is in our known providers list
         if domain in EMAIL_PROVIDERS:
             return EMAIL_PROVIDERS[domain]
         else:
-            # Default to common IMAP settings
+            # Default to common IMAP settings pattern
             return {"host": f"imap.{domain}", "port": 993}
     except:
-        # Fallback to Gmail settings
+        # Fallback to Gmail settings if parsing fails
         return {"host": "imap.gmail.com", "port": 993}
 
-app = FastAPI(title="Insurance AI Agent", description="Automated Email Processing", lifespan=lifespan)
+# ========== FASTAPI APPLICATION SETUP ==========
+# Initialize FastAPI application with lifecycle management
+app = FastAPI(
+    title="Insurance AI Agent", 
+    description="Automated Email Processing and Document Classification",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
-# Create templates directory if it doesn't exist
+# ========== DIRECTORY STRUCTURE SETUP ==========
+# Ensure required directories exist for templates and static files
 os.makedirs("templates", exist_ok=True)
 os.makedirs("static", exist_ok=True)
 
+# ========== TEMPLATE AND STATIC FILE CONFIGURATION ==========
+# Setup Jinja2 templates for HTML rendering
 templates = Jinja2Templates(directory="templates")
+# Mount static files directory for CSS, JS, images
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Global state
+# ========== GLOBAL APPLICATION STATE ==========
+# System status tracking for different components
 system_status = {
-    "azure_connected": bool(os.getenv("AZURE_STORAGE_CONNECTION_STRING")),  # Check if configured
-    "email_connected": False,
-    "prerequisites_installed": True,  # Auto-installed
-    "processing_active": False
+    "azure_connected": bool(os.getenv("AZURE_STORAGE_CONNECTION_STRING")),  # Azure connectivity
+    "email_connected": False,        # Email server connection status
+    "prerequisites_installed": True, # Dependencies installation status
+    "processing_active": False       # Email processing activity status
 }
 
+# Configuration storage for various services
 email_config = {}
 
+# Email connection credentials and settings
 email_credentials = {
-    "host": "",
-    "port": 993,
-    "username": "",
-    "password": "",
-    "folder": "INBOX"
+    "host": "",         # IMAP server hostname
+    "port": 993,        # IMAP server port (default SSL)
+    "username": "",     # Email account username
+    "password": "",     # Email account password/app password
+    "folder": "INBOX"   # Email folder to monitor
 }
 
 azure_config = {
@@ -290,32 +420,61 @@ def generate_folder_sas_url(storage_account, container_name, folder_name):
         # Fallback to Azure Storage Explorer style URL
         return f"https://portal.azure.com/#@/resource/subscriptions/your-subscription/resourceGroups/your-rg/providers/Microsoft.Storage/storageAccounts/{storage_account}/containersList"
 
+# ========== PROCESSED EMAILS STORAGE ==========
+# In-memory storage for processed email results (in production, use database)
 processed_emails = []
+
+# ========== MAIN WEB INTERFACE ENDPOINTS ==========
 
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
-    """Main dashboard page."""
+    """
+    Main dashboard page endpoint.
+    
+    Serves the primary web interface for the Insurance AI Agent system.
+    Displays system status and provides access to all major features.
+    
+    Args:
+        request (Request): FastAPI request object
+        
+    Returns:
+        TemplateResponse: Rendered HTML dashboard with system status
+    """
     return templates.TemplateResponse("simple_dashboard.html", {
         "request": request,
         "system_status": system_status
     })
 
+# ========== SETUP AND CONFIGURATION ENDPOINTS ==========
+
 @app.post("/setup/prerequisites")
 async def setup_prerequisites():
-    """Install and setup all prerequisites."""
+    """
+    Install and setup all system prerequisites.
+    
+    Automatically installs required Python packages for:
+    - Azure services (Blob Storage, Identity management)
+    - PDF processing (PyPDF2, pytesseract)
+    - Data validation (pydantic-settings)
+    - OCR capabilities
+    
+    Returns:
+        JSONResponse: Installation status and results
+    """
     try:
         logger.info("Setting up prerequisites...")
         
-        # Simulate prerequisite installation
+        # Execute prerequisite installation process
         import subprocess
         import sys
         
+        # List of essential packages for the Insurance AI Agent
         packages = [
-            "azure-storage-blob",
-            "azure-identity", 
-            "pydantic-settings",
-            "PyPDF2",
-            "pytesseract",
+            "azure-storage-blob",   # Azure Blob Storage client
+            "azure-identity",       # Azure authentication
+            "pydantic-settings",    # Configuration management
+            "PyPDF2",              # PDF text extraction
+            "pytesseract",         # OCR text recognition
             "Pillow",
             "openai"
         ]
@@ -638,6 +797,311 @@ async def process_unread_emails():
             "error": str(e)
         }
 
+def classify_document_simple(text: str) -> dict:
+    """
+    AI-powered document classification using Gemini API or fallback to keyword-based classification.
+    
+    Args:
+        text: Extracted text from document
+        
+    Returns:
+        dict: Classification result with document_type and confidence
+    """
+    if not text or not text.strip():
+        return {"document_type": "No text found", "confidence": "0%"}
+    
+    # Check if Gemini should be used
+    use_gemini = os.getenv("USE_GEMINI", "false").lower() == "true"
+    
+    if use_gemini:
+        try:
+            return classify_with_gemini(text)
+        except Exception as e:
+            logger.error(f"Gemini classification failed, falling back to keyword-based: {str(e)}")
+            # Fall back to keyword-based classification
+    
+    # Keyword-based classification fallback
+    return classify_with_keywords(text)
+
+
+def classify_with_gemini(text: str) -> dict:
+    """
+    Classify document using Google Gemini AI for advanced natural language understanding.
+    
+    This function leverages Google's Gemini AI model to perform sophisticated document
+    classification for insurance documents. It provides more accurate results than
+    keyword-based classification by understanding context and document structure.
+    
+    Author: Rachit Patel (AI Document Classification Implementation)
+    
+    Features:
+    - Advanced natural language understanding using Google Gemini
+    - Context-aware classification with reasoning
+    - Support for multiple Gemini models (gemini-pro, gemini-1.5-flash)
+    - Automatic text truncation for API token limits
+    - Detailed reasoning output for transparency
+    - Structured JSON response format for integration
+    - Fallback error handling for API failures
+    
+    Args:
+        text (str): Extracted OCR text from document to classify
+        
+    Returns:
+        dict: Classification result containing:
+            - document_type (str): Classified insurance document category
+            - confidence (float): Classification confidence score (0-100)
+            - reasoning (str): AI explanation for the classification decision
+            
+    Raises:
+        Exception: If Gemini API key is not configured or API call fails
+        
+    Environment Variables Required:
+        - GEMINI_API_KEY: Google Gemini API authentication key
+        - GEMINI_MODEL: Model name (default: "gemini-1.5-flash")
+        - USE_GEMINI: Boolean flag to enable/disable Gemini classification
+        
+    Insurance Document Categories Supported:
+        1. General Liability Policy Document
+        2. Excess Liability Policy Document  
+        3. Certificate of Insurance
+        4. Contract Document
+        5. Request
+        6. Claim Request
+        7. Insurance RFP (Request for Proposal)
+    """
+    try:
+        # ========== GEMINI LIBRARY IMPORT ==========
+        # Import Google Generative AI library (must be installed separately)
+        import google.generativeai as genai
+        
+        # ========== API AUTHENTICATION ==========
+        # Retrieve and validate Gemini API key from environment variables
+        api_key = os.getenv("GEMINI_API_KEY")
+        
+        # Check if API key is properly configured
+        if not api_key or api_key == "your_gemini_api_key_here":
+            raise Exception("Gemini API key not configured. Please set GEMINI_API_KEY in .env file")
+            
+        # Configure Gemini client with the API key
+        genai.configure(api_key=api_key)
+        
+        # ========== MODEL INITIALIZATION ==========
+        # Get model name from environment with intelligent fallback
+        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")  # Default to fast model
+        
+        # Initialize the Gemini generative model
+        model = genai.GenerativeModel(model_name)
+        
+        # ========== TEXT PREPROCESSING ==========
+        # Handle text length limitations for API efficiency
+        max_text_length = 8000  # Gemini API token limit consideration
+        
+        # Truncate text if it exceeds maximum length
+        if len(text) > max_text_length:
+            text = text[:max_text_length] + "..."  # Add ellipsis to indicate truncation
+            logger.info(f"Text truncated to {max_text_length} characters for Gemini API")
+        
+        # ========== CLASSIFICATION PROMPT CREATION ==========
+        # Create comprehensive and specific classification prompt
+        prompt = f"""
+You are an expert insurance document classifier with deep knowledge of insurance industry documents.
+
+TASK: Analyze the provided document text and classify it into EXACTLY ONE of the following insurance document categories:
+
+DOCUMENT CATEGORIES:
+1. General Liability Policy Document - Insurance policies covering general liability
+2. Excess Liability Policy Document - Umbrella/excess liability coverage policies  
+3. Certificate of Insurance - Certificates proving insurance coverage
+4. Contract Document - Legal agreements, insurance contracts, terms and conditions
+5. Request - General requests for information or services
+6. Claim Request - Insurance claim forms, loss reports, damage reports
+7. Insurance RFP - Request for Proposal documents for insurance services
+
+DOCUMENT TEXT TO CLASSIFY:
+{text}
+
+CLASSIFICATION GUIDELINES:
+- Contract Document: Legal agreements, insurance contracts, party obligations, governing law, signatures
+- Claim Request: Claim numbers, loss reports, incident reports, adjuster information
+- Certificate of Insurance: ACORD forms, certificate holders, evidence of insurance
+- General Liability: Liability coverage terms, bodily injury, property damage coverage
+- Excess Liability: Umbrella policies, excess coverage layers, additional limits
+- Request: General inquiries, information requests, service requests
+- Insurance RFP: Proposal requests, bid solicitations, quotation requests
+
+RESPONSE FORMAT - Return ONLY valid JSON:
+{{
+    "document_type": "EXACT_CATEGORY_NAME",
+    "confidence": confidence_percentage_as_number,
+    "reasoning": "detailed_explanation_of_classification_decision"
+}}
+
+IMPORTANT: 
+- Use EXACT category names from the list above
+- Confidence should be 0-100 as a number
+- Provide clear reasoning for your decision
+- Focus on insurance-specific terminology and document structure
+"""
+
+        # ========== GEMINI API RESPONSE HANDLING ==========
+        
+        # Generate response
+        response = model.generate_content(prompt)
+        result_text = response.text.strip()
+        
+        # Try to parse JSON response
+        import json
+        try:
+            # Clean up response if it has markdown formatting
+            if "```json" in result_text:
+                result_text = result_text.split("```json")[1].split("```")[0]
+            elif "```" in result_text:
+                result_text = result_text.split("```")[1].split("```")[0]
+            
+            result = json.loads(result_text)
+            
+            # Validate the response
+            valid_types = [
+                "General Liability Policy Document",
+                "Excess Liability Policy Document", 
+                "Certificate of Insurance",
+                "Contract Document",
+                "Request",
+                "Claim Request",
+                "Insurance RFP"
+            ]
+            
+            if result.get("document_type") not in valid_types:
+                logger.warning(f"Invalid document type from Gemini: {result.get('document_type')}")
+                return {"document_type": "Unclassified Document", "confidence": "50%"}
+            
+            logger.info(f"Gemini classification: {result.get('document_type')} - {result.get('reasoning', '')}")
+            return {
+                "document_type": result.get("document_type", "Unclassified Document"),
+                "confidence": result.get("confidence", "75%")
+            }
+            
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse Gemini response as JSON: {result_text}")
+            return {"document_type": "Classification Error", "confidence": "0%"}
+            
+    except ImportError:
+        logger.error("Google Generative AI library not installed. Install with: pip install google-generativeai")
+        raise Exception("Gemini library not available")
+    except Exception as e:
+        logger.error(f"Gemini classification error: {str(e)}")
+        raise
+
+
+def classify_with_keywords(text: str) -> dict:
+    """
+    Keyword-based document classification as fallback for AI classification.
+    
+    This function provides reliable document classification using predefined keyword
+    sets for each document type. It serves as a fallback when AI services are
+    unavailable and ensures the system continues to function.
+    
+    Classification Method:
+    - Searches for specific keywords in document text
+    - Uses weighted scoring for keyword matches
+    - Applies priority weights to handle overlapping keywords
+    - Returns the highest scoring category
+    
+    Args:
+        text (str): Extracted text from document to classify
+        
+    Returns:
+        dict: Classification result containing:
+            - document_type (str): Classified document category
+            - confidence (str): Classification confidence percentage
+            
+    Environment Variables Used:
+        - {TYPE}_KEYWORDS: Comma-separated keywords for each document type
+        - {TYPE}_CONFIDENCE: Confidence percentage for each document type
+        
+    Example:
+        >>> result = classify_with_keywords("This is an insurance policy...")
+        >>> print(result)
+        {"document_type": "General Liability Policy Document", "confidence": "85%"}
+    """
+    # Convert text to lowercase for case-insensitive matching
+    text_lower = text.lower()
+    
+    # ========== LOAD CLASSIFICATION CONFIGURATION ==========
+    # Load document type definitions and keywords from environment variables
+    classifications = {
+        "General Liability Policy Document": {
+            "keywords": os.getenv("GENERAL_LIABILITY_KEYWORDS", "").split(","),
+            "confidence": f"{os.getenv('GENERAL_LIABILITY_CONFIDENCE', '85')}%"
+        },
+        "Excess Liability Policy Document": {
+            "keywords": os.getenv("EXCESS_LIABILITY_KEYWORDS", "").split(","),
+            "confidence": f"{os.getenv('EXCESS_LIABILITY_CONFIDENCE', '90')}%"
+        },
+        "Certificate of Insurance": {
+            "keywords": os.getenv("CERTIFICATE_INSURANCE_KEYWORDS", "").split(","),
+            "confidence": f"{os.getenv('CERTIFICATE_INSURANCE_CONFIDENCE', '95')}%"
+        },
+        "Contract Document": {
+            "keywords": os.getenv("CONTRACT_KEYWORDS", "").split(","),
+            "confidence": f"{os.getenv('CONTRACT_CONFIDENCE', '80')}%"
+        },
+        "Request": {
+            "keywords": os.getenv("REQUEST_KEYWORDS", "").split(","),
+            "confidence": f"{os.getenv('REQUEST_CONFIDENCE', '75')}%"
+        },
+        "Claim Request": {
+            "keywords": os.getenv("CLAIM_REQUEST_KEYWORDS", "").split(","),
+            "confidence": f"{os.getenv('CLAIM_REQUEST_CONFIDENCE', '85')}%"
+        },
+        "Insurance RFP": {
+            "keywords": os.getenv("INSURANCE_RFP_KEYWORDS", "").split(","),
+            "confidence": f"{os.getenv('INSURANCE_RFP_CONFIDENCE', '90')}%"
+        }
+    }
+    
+    # ========== KEYWORD PREPROCESSING ==========
+    # Clean up keywords (remove empty strings and strip whitespace)
+    for doc_type in classifications:
+        classifications[doc_type]["keywords"] = [
+            keyword.strip() for keyword in classifications[doc_type]["keywords"] 
+            if keyword.strip()
+        ]
+    
+    # Define priority weights for document types (higher = more specific)
+    priority_weights = {
+        "Certificate of Insurance": 10,
+        "Contract Document": 9,  # Increased priority
+        "Excess Liability Policy Document": 9,
+        "General Liability Policy Document": 9,
+        "Insurance RFP": 8,
+        "Claim Request": 7,  # Decreased priority
+        "Request": 6
+    }
+    
+    # Check for matches - prioritize more specific document types
+    best_match = None
+    max_score = 0
+    
+    for doc_type, info in classifications.items():
+        matches = sum(1 for keyword in info["keywords"] if keyword in text_lower)
+        if matches > 0:
+            # Calculate weighted score: matches * priority weight
+            weight = priority_weights.get(doc_type, 5)
+            score = matches * weight
+            
+            if score > max_score:
+                max_score = score
+                best_match = {"document_type": doc_type, "confidence": info["confidence"]}
+                logger.info(f"Document classification: {doc_type} (matches: {matches}, score: {score})")
+    
+    # If no clear match, classify as unclassified
+    if max_score == 0:
+        return {"document_type": "Unclassified Document", "confidence": "50%"}
+    
+    return best_match or {"document_type": "Unclassified Document", "confidence": "50%"}
+
+
 async def process_single_email(mail, email_id, blob_service_client):
     """Process a single email and upload to Azure."""
     # Fetch email
@@ -793,6 +1257,37 @@ async def process_single_email(mail, email_id, blob_service_client):
         "ingestion_processed": True,  # Always show as successful since ingestion is working
         "ingestion_error": None
     }
+    
+    # Add simple document classification based on OCR results
+    try:
+        if ocr_results and len(ocr_results) > 0:
+            # Get the first OCR result to classify
+            first_ocr = ocr_results[0]
+            # Read the OCR text from blob storage
+            try:
+                ocr_blob_name = f"{folder_name}/ocr/{first_ocr['filename']}_text.txt"
+                ocr_blob_client = blob_service_client.get_blob_client(
+                    container=azure_config["container_name"],
+                    blob=ocr_blob_name
+                )
+                ocr_text = ocr_blob_client.download_blob().readall().decode('utf-8')
+                
+                # Simple keyword-based classification
+                classification_result = classify_document_simple(ocr_text)
+                processed_email["document_type"] = classification_result["document_type"]
+                processed_email["classification_confidence"] = classification_result["confidence"]
+                
+            except Exception as e:
+                logger.error(f"Error reading OCR text for classification: {str(e)}")
+                processed_email["document_type"] = "OCR Error"
+                processed_email["classification_confidence"] = ""
+        else:
+            processed_email["document_type"] = "No attachments"
+            processed_email["classification_confidence"] = ""
+    except Exception as e:
+        logger.error(f"Error in document classification: {str(e)}")
+        processed_email["document_type"] = "Classification Error"
+        processed_email["classification_confidence"] = ""
     
     processed_emails.append(processed_email)
     

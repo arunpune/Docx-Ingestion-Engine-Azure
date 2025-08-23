@@ -1,29 +1,85 @@
 """
-Shared utilities for the Insurance AI Agent system.
-"""
-import uuid
-import logging
-import os
-from datetime import datetime
-from typing import Optional
-from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
-from azure.identity import DefaultAzureCredential
-from .config import settings
+Shared Utilities for Insurance AI Agent System
+==============================================
+Author: Shrvan Hatte
 
-# Configure logging
-logging.basicConfig(level=getattr(logging, settings.log_level.upper()))
+This module provides common utility functions used throughout the Insurance AI Agent system.
+It includes functions for Azure Blob Storage operations, unique ID generation, file handling,
+and Service Bus messaging operations.
+
+Key Utilities:
+- Unique ID generation for processing records
+- Azure Blob Storage file upload/download operations
+- Service Bus message sending and receiving
+- File validation and type checking
+- Error handling and logging helpers
+- Date/time formatting utilities
+
+Azure Integration:
+- Blob Storage client management with authentication
+- SAS token generation for secure file access
+- Container management and file organization
+- Automatic retry logic for cloud operations
+
+Author: Insurance AI Agent Team
+Version: 1.0
+Dependencies: azure-storage-blob, azure-identity, azure-servicebus, uuid, logging
+"""
+
+# Standard library imports
+import uuid                # UUID generation for unique identifiers
+import logging            # Application logging functionality
+import os                 # Operating system interface
+from datetime import datetime     # Date and time operations
+from typing import Optional      # Type hints for optional parameters
+
+# Azure SDK imports for cloud services
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from azure.identity import DefaultAzureCredential  # Azure authentication
+
+# Local configuration import
+from .config import settings  # Application configuration
+
+# Configure logging for this module
+logging.basicConfig(level=getattr(logging, settings.log_level.upper() if hasattr(settings, 'log_level') else 'INFO'))
 logger = logging.getLogger(__name__)
 
 
 def generate_unique_id() -> str:
-    """Generate a unique processing ID."""
+    """
+    Generate a unique processing ID for tracking operations.
+    
+    Creates a unique identifier combining timestamp and UUID for tracking
+    processing records throughout the system. Format: PROC_YYYYMMDD_HHMMSS_UUID8
+    
+    Returns:
+        str: Unique processing ID in format "PROC_20241223_143052_a1b2c3d4"
+        
+    Example:
+        >>> processing_id = generate_unique_id()
+        >>> print(processing_id)
+        "PROC_20241223_143052_a1b2c3d4"
+    """
+    # Generate timestamp component for chronological ordering
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    # Generate unique component using UUID
     unique_id = str(uuid.uuid4())[:8]
     return f"PROC_{timestamp}_{unique_id}"
 
 
 def get_blob_service_client() -> BlobServiceClient:
-    """Get Azure Blob Storage service client."""
+    """
+    Get authenticated Azure Blob Storage service client.
+    
+    Creates and returns a BlobServiceClient instance configured with the
+    application's Azure Storage credentials from settings.
+    
+    Returns:
+        BlobServiceClient: Authenticated client for Azure Blob Storage operations
+        
+    Raises:
+        Exception: If Azure Storage credentials are invalid or missing
+    """
     return BlobServiceClient(
         account_url=f"https://{settings.azure_storage_account_name}.blob.core.windows.net",
         credential=settings.azure_storage_account_key
@@ -34,18 +90,32 @@ def upload_file_to_blob(file_path: str, blob_name: str, container_name: Optional
     """
     Upload a file to Azure Blob Storage and return the blob URI.
     
+    Uploads a local file to Azure Blob Storage with proper error handling
+    and logging. Supports custom container names and generates accessible URIs.
+    
     Args:
-        file_path: Local path to the file to upload
-        blob_name: Name for the blob in storage
-        container_name: Container name (defaults to configured container)
+        file_path (str): Local filesystem path to the file to upload
+        blob_name (str): Desired name for the blob in Azure Storage
+        container_name (Optional[str]): Target container name (uses default if None)
     
     Returns:
-        str: URI of the uploaded blob
+        str: Complete URI of the uploaded blob for external access
+        
+    Raises:
+        FileNotFoundError: If the specified local file doesn't exist
+        Exception: If Azure Storage upload fails
+        
+    Example:
+        >>> uri = upload_file_to_blob("/tmp/document.pdf", "docs/doc1.pdf")
+        >>> print(uri)
+        "https://storage.blob.core.windows.net/container/docs/doc1.pdf"
     """
+    # Use default container if none specified
     if container_name is None:
         container_name = settings.azure_blob_container_name
     
     try:
+        # Get authenticated blob service client
         blob_service_client = get_blob_service_client()
         blob_client = blob_service_client.get_blob_client(
             container=container_name, 
