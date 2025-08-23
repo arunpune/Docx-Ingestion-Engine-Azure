@@ -1,3 +1,5 @@
+# Insurance AI Agent - Docker Configuration
+# Author: Shrvan Hatte
 FROM python:3.9-slim
 
 # Set working directory

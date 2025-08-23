@@ -1,3 +1,5 @@
+# Insurance AI Agent - Docker Compose Configuration
+# Author: Shrvan Hatte
 version: '3.8'
 
 services:

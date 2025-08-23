@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Insurance AI Agent - Simple Dashboard Template -->
+<!-- Author: Shrvan Hatte -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -135,12 +137,8 @@
             color: #004085;
             border: 1px solid #b8daff;
         }
-        .process-section {
-            text-align: center;
-            margin-top: 30px;
-        }
         .hidden {
-            display: none;
+            display: none !important;
         }
         .loading {
             display: inline-block;
@@ -208,17 +206,6 @@
             
             <div id="emailResult"></div>
         </div>
-
-        <!-- Process Emails -->
-        <div class="process-section">
-            <h3>🔄 Start Processing Emails</h3>
-            <p>Once connected, click below to start processing your unread emails.</p>
-            <button class="btn btn-success" onclick="processEmails()" id="processBtn" disabled>
-                <span id="processText">Start Processing Emails</span>
-                <span id="processLoading" class="loading hidden"></span>
-            </button>
-            <div id="processResult"></div>
-        </div>
     </div>
 
     <script>
@@ -252,15 +239,17 @@
                         resultHtml += '<div style="margin-top: 20px;"><h4>📬 Processed Emails:</h4>';
                         data.processed_emails.forEach(email => {
                             resultHtml += `
-                                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; background: #f9f9f9;">
-                                    <div><strong>📧 Subject:</strong> ${email.subject || 'No Subject'}</div>
-                                    <div><strong>👤 From:</strong> ${email.from || 'Unknown'}</div>
-                                    <div><strong>📅 Date:</strong> ${email.date || 'Unknown'}</div>
-                                    <div><strong>🆔 CosmosDB Document ID:</strong> <code>${email.cosmos_document_id || 'Not saved'}</code></div>
-                                    <div><strong>🔗 Blob URL:</strong> <a href="${email.email_blob_url}" target="_blank" style="word-break: break-all;">${email.email_blob_url}</a></div>
-                                    <div><strong>📎 Attachments:</strong> ${email.attachments_count || 0}</div>
-                                    <div><strong>✅ Ingestion Status:</strong> ${email.ingestion_processed ? '✅ Success' : '❌ Failed'}</div>
-                                    ${email.ingestion_error ? `<div style="color: red;"><strong>❌ Error:</strong> ${email.ingestion_error}</div>` : ''}
+                                <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #28a745;">
+                                    <h5 style="margin: 0 0 10px 0; color: #333;">📧 Subject: ${email.subject || 'No Subject'}</h5>
+                                    <p style="margin: 5px 0; color: #666;"><strong>👤 From:</strong> ${email.from || 'Unknown'}</p>
+                                    <p style="margin: 5px 0; color: #666;"><strong>📅 Date:</strong> ${email.date || 'Unknown'}</p>
+                                    <p style="margin: 5px 0; color: #666;"><strong>🆔 CosmosDB Document ID:</strong> <code>${email.cosmos_document_id || 'Not saved'}</code></p>
+                                    <p style="margin: 5px 0; color: #666;"><strong>🔗 Blob URL:</strong> <a href="${email.email_blob_url || '#'}" target="_blank" style="word-break: break-all; color: #007bff;">${email.email_blob_url || 'Not available'}</a></p>
+                                    <p style="margin: 5px 0; color: #666;"><strong>📎 Attachments:</strong> ${email.attachments_count || 0}</p>
+                                    <p style="margin: 5px 0; color: #666;"><strong>✅ Ingestion Status:</strong> ${email.ingestion_processed ? '✅ Success' : '❌ Failed'}</p>
+                                    <p style="margin: 5px 0; color: #666;"><strong>📄 Document Type:</strong> ${email.document_type || 'Not classified'}</p>
+                                    <p style="margin: 5px 0; color: #666;"><strong>🔢 Classification Confidence:</strong> ${email.classification_confidence || 'N/A'}</p>
+                                    ${email.ingestion_error ? `<p style="margin: 5px 0; color: #dc3545;"><strong>❌ Error:</strong> ${email.ingestion_error}</p>` : ''}
                                 </div>
                             `;
                         });
@@ -268,8 +257,6 @@
                     }
                     
                     result.innerHTML = resultHtml;
-                    // Hide the process section since it's done automatically
-                    document.querySelector('.process-section').style.display = 'none';
                 } else {
                     result.innerHTML = `<div class="alert alert-error">❌ ${data.detail || data.message}</div>`;
                 }
@@ -282,44 +269,6 @@
                 loading.classList.add('hidden');
             }
         });
-
-        // Process emails function
-        async function processEmails() {
-            const btn = document.getElementById('processBtn');
-            const text = document.getElementById('processText');
-            const loading = document.getElementById('processLoading');
-            const result = document.getElementById('processResult');
-            
-            btn.disabled = true;
-            text.classList.add('hidden');
-            loading.classList.remove('hidden');
-            
-            try {
-                const response = await fetch('/process/emails', {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    result.innerHTML = `
-                        <div class="alert alert-success">
-                            ✅ Successfully processed ${data.processed} out of ${data.total_found} emails!
-                            ${data.errors.length > 0 ? `<br>⚠️ ${data.errors.length} errors occurred.` : ''}
-                        </div>
-                    `;
-                } else {
-                    result.innerHTML = `<div class="alert alert-error">❌ ${data.message}</div>`;
-                }
-                
-            } catch (error) {
-                result.innerHTML = `<div class="alert alert-error">❌ Processing failed: ${error.message}</div>`;
-            } finally {
-                btn.disabled = false;
-                text.classList.remove('hidden');
-                loading.classList.add('hidden');
-            }
-        }
     </script>
 </body>
 </html>

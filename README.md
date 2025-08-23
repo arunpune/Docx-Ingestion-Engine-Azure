@@ -1,4 +1,5 @@
 # 🏢 Insurance AI Agent
+<!-- Author: Utsav Pat -->
 
 A comprehensive email processing system that automatically scans, extracts, and stores insurance-related documents using Azure services and OCR technology.
 

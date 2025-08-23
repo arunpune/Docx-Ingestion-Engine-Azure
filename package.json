@@ -1,4 +1,5 @@
 {
+  "_comment": "Insurance AI Agent - Node.js Dependencies - Author: Utsav Pat",
   "devDependencies": {
     "@azure/mcp-win32-x64": "^0.5.6"
   }

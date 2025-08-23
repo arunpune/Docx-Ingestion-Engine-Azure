@@ -1,31 +1,33 @@
 {
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",   "_comment": "Insurance AI Agent - Email Processor Logic App - Author: Rachit Patekar",
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "logicAppName": {
             "type": "string",
             "defaultValue": "insurance-email-processor",
             "metadata": {
-                "description": "Name of the Logic App"
+                "description": "Name of the Logic App for email processing workflow"
             }
         },
         "emailProcessorEndpoint": {
             "type": "string",
             "metadata": {
-                "description": "URL of the email processor API endpoint"
+                "description": "URL of the Insurance AI Agent email processor API endpoint"
             }
         },
         "storageAccountName": {
             "type": "string",
             "metadata": {
-                "description": "Name of the Azure Storage Account"
+                "description": "Name of the Azure Storage Account for document storage"
             }
         },
         "containerName": {
             "type": "string",
             "defaultValue": "insurance-documents",
             "metadata": {
-                "description": "Name of the blob container"
+                "description": "Name of the blob container for storing email attachments"
             }
         }
     },
