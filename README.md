@@ -1,5 +1,5 @@
 
-# Docx Ingestion Engine for Azure
+# Docx Ingestion Engine using Azure
 
 ## Project Overview
 
