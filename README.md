@@ -1,53 +1,43 @@
-# 🏢 Insurance AI Agent
-<!-- Author: Utsav Pat -->
 
-A comprehensive email processing system that automatically scans, extracts, and stores insurance-related documents using Azure services and OCR technology.
+# Docx Ingestion Engine for Azure
 
-## 📋 Table of Contents
+## Project Overview
 
-- [Overview](#overview)
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Azure Setup Guide](#azure-setup-guide)
-- [Email Configuration](#email-configuration)
-- [Running the Application](#running-the-application)
-- [How It Works](#how-it-works)
-- [Troubleshooting](#troubleshooting)
-- [API Documentation](#api-documentation)
+Docx Ingestion Engine for Azure is an intelligent, end-to-end document processing platform designed for insurance workflows. It automates the ingestion, classification, and extraction of data from diverse document types (emails, PDFs, images, Word files, etc.) using Azure cloud services and AI-powered OCR and classification. The system is modular, scalable, and built for secure, compliant handling of sensitive insurance data.
 
-## Features
-
-- **Email Processing**: Automated email monitoring and attachment extraction
-- **File Ingestion**: Direct file upload processing via API endpoints
-- **OCR Engine**: Text extraction from various document formats (PDF, images, Word documents)
-- **AI Document Classification**: Intelligent document type classification using OpenAI GPT
-- **Azure Integration**: Built for Azure cloud services (Logic Apps, Blob Storage, Service Bus, Databricks)
+### Key Features
+- Automated email and file ingestion via Azure Logic Apps
+- Secure document storage in Azure Blob Storage
+- Advanced OCR using Azure Form Recognizer and Tesseract
+- AI-powered document classification and entity extraction
+- Modular architecture for easy extension and maintenance
+- Health monitoring, logging, and error handling
+- Configurable via environment variables and .env files
+- Dockerized for cloud deployment (Azure Container Instances, App Service)
 
 ## Architecture
 
-### Components
+The system consists of several core modules:
 
 1. **Email Processor** (`src/email_processor/`)
-   - Receives emails via Azure Logic Apps
-   - Extracts metadata and attachments
-   - Stores files in Azure Blob Storage
-   - Creates transactional records in database
+   - Monitors email inboxes using Azure Logic Apps
+   - Extracts attachments and metadata
+   - Routes emails to the ingestion engine
 
 2. **File Ingestion** (`src/file_ingestion/`)
-   - Handles direct file uploads (Google Forms integration)
-   - Processes various file formats
-   - Validates and stores files securely
+   - Handles direct file uploads and batch processing
+   - Validates and stores files in Azure Blob Storage
+   - Initiates ingestion workflow
 
 3. **Ingestion Engine** (`src/ingestion_engine/`)
-   - Coordinates processing workflow
-   - Manages database transactions
-   - Routes files to OCR processing
+   - Orchestrates processing workflow
+   - Manages database transactions and status
+   - Routes files to OCR and classification modules
 
 4. **OCR Engine** (`src/ocr_engine/`)
    - Extracts text from documents using multiple methods
    - Supports PDF, images, Word documents
-   - Uses Azure Form Recognizer and Tesseract OCR
+   - Integrates Azure Form Recognizer and Tesseract OCR
 
 5. **Document Classifier** (`src/ocr_engine/document_classifier.py`)
    - AI-powered document classification
@@ -57,10 +47,18 @@ A comprehensive email processing system that automatically scans, extracts, and 
 ### Azure Services Used
 
 - **Azure Logic Apps**: Email monitoring and file processing workflows
-- **Azure Blob Storage**: Document storage with private access URLs
+- **Azure Blob Storage**: Secure document storage
 - **Azure Service Bus**: Message queuing between components
 - **Azure Form Recognizer**: Advanced OCR capabilities
 - **Databricks**: Data processing and analytics platform
+
+## Author Attribution & Documentation Standards
+
+All files in this repository include author attribution comments at the top, following the standards documented in `COMMENT-RULES.md`. For files that do not support comments (e.g., JSON), author attribution is documented in `AUTHORS.md`.
+
+Refer to `AUTHORS.md` for a comprehensive list of contributors, file ownership, and explanations of each module.
+
+Commenting standards and best practices are described in `COMMENT-RULES.md`.
 
 ## Installation
 
@@ -75,8 +73,9 @@ A comprehensive email processing system that automatically scans, extracts, and 
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd Insurace-AI-Agent
+   cd Docx-Ingestion-Engine-Azure
    ```
+
 
 2. **Install dependencies**
    ```bash
@@ -283,3 +282,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Support
 
 For support and questions, please contact the development team or create an issue in the repository.
+
+---
+
+**Documentation Files:**
+- `AUTHORS.md`: Author attribution for all files and modules
+- `COMMENT-RULES.md`: Commenting standards and best practices
+- `Copilot-Rules.md`: Additional project rules and guidelines
+
+**Maintained by:**
+The Docx Ingestion Engine for Azure Team
+1. Fork the repository
