@@ -10,17 +10,437 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            width: 100vw;
+            overflow-x: hidden;
+        }
+        .email-management {
+            margin-top: 30px;
+            padding: 32px 32px 24px 32px;
+            border-radius: 14px;
+            background: #f4f7fb;
+            box-shadow: 0 2px 12px rgba(102,126,234,0.07);
+            border: 1.5px solid #e3e8f0;
+        }
+        .filter-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .filter-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            padding: 10px 0;
+        }
+        .filter-actions .btn {
+            width: auto;
+            padding: 8px 16px;
+            margin: 0;
+        }
+        .email-list {
+            margin-top: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+            border: 1px solid #e3e8f0;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+
+        .email-list::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .email-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 6px;
+        }
+
+        .email-list::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 6px;
+        }
+
+        .email-list::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Loading Progress Bar Styles */
+        .loading-progress {
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); }
+            50% { box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5); }
+            100% { box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); }
+        }
+
+        .progress-container {
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50 0%, #45a049 50%, #4CAF50 100%);
+            border-radius: 13px;
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        .progress-text {
+            color: white;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #progress-percentage {
+            font-size: 18px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        #progress-message {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .email-item {
+            background: white;
+            padding: 12px 20px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+            border: 1px solid #e9ecef;
+            position: relative;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+
+        .email-serial {
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 15px;
+            min-width: 30px;
+            font-size: 14px;
+        }
+        .email-item:hover {
+            box-shadow: 0 4px 12px rgba(102,126,234,0.10);
+        }
+        .email-summary {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .email-summary .subject {
+            font-weight: 600;
+            color: #333;
+            flex: 2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .email-summary .sender {
+            color: #555;
+            flex: 1;
+            min-width: 120px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .email-summary .date {
+            color: #888;
+            font-size: 0.95em;
+            min-width: 110px;
+        }
+        .email-summary .category {
+            background: #e9ecef;
+            color: #333;
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 0.95em;
+            min-width: 90px;
+            text-align: center;
+        }
+        /* Fixed Delete Button - No More Overlap! */
+        .email-item {
+            position: relative;
+            padding-right: 80px; /* Make space for delete button */
+        }
+        .email-details {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 0 0 6px 6px;
+            margin-top: 8px;
+            padding: 18px 18px 10px 18px;
+            border-left: 4px solid #28a745;
+        }
+        .email-item.expanded .email-details {
+            display: block;
+        }
+        .email-item .delete-btn {
+            position: absolute;
+            top: 50%;
+            right: 15px;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+            transition: all 0.2s ease;
+            z-index: 10; /* Ensure it's above other elements */
+            min-width: 60px;
+        }
+
+        .email-item .delete-btn:hover {
+            background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+            transform: translateY(-50%) scale(1.05);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+        }
+
+        .email-item .delete-btn:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+
+        /* Multi-Select Checkbox Styles */
+        .email-checkbox {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .email-item {
+            padding-left: 50px; /* Make space for checkbox */
+        }
+
+        .email-item.selected {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-left: 4px solid #2196f3;
+        }
+
+        /* Bulk Delete Controls */
+        .bulk-delete-controls {
+            display: none;
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .bulk-delete-controls.show {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bulk-delete-info {
+            font-weight: bold;
+        }
+
+        .bulk-delete-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bulk-delete-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .bulk-delete-btn:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+
+        .bulk-cancel-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .bulk-cancel-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Email Processing Progress Bar */
+        .email-processing-progress {
+            margin: 20px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+            animation: emailPulse 2s infinite;
+        }
+
+        @keyframes emailPulse {
+            0% { box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3); }
+            50% { box-shadow: 0 8px 25px rgba(40, 167, 69, 0.5); }
+            100% { box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3); }
+        }
+
+        .email-processing-progress .progress-container {
+            text-align: center;
+        }
+
+        .email-processing-progress .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .email-processing-progress .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffffff 0%, #f8f9fa 50%, #ffffff 100%);
+            border-radius: 13px;
+            width: 0%;
+            transition: width 0.5s ease;
+            animation: emailShimmer 2s infinite;
+        }
+
+        @keyframes emailShimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        .email-processing-progress .progress-text {
+            color: white;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .email-processing-progress #email-progress-percentage {
+            font-size: 20px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .email-processing-progress #email-progress-message {
+            font-size: 16px;
+            opacity: 0.95;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .progress-steps .step {
+            flex: 1;
+            text-align: center;
+            padding: 10px 5px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .progress-steps .step.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .progress-steps .step.completed {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            font-weight: bold;
+        }
+        .category-filter {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+        .category-tag {
+            padding: 5px 10px;
+            border-radius: 15px;
+            background: #e9ecef;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .category-tag:hover {
+            background: #dee2e6;
+        }
+        .category-tag.active {
+            background: #667eea;
+            color: white;
         }
         .container {
-            max-width: 600px;
-            margin: 0 auto;
+            max-width: 95vw;
+            width: 95vw;
+            margin: 20px auto;
             background: white;
             border-radius: 15px;
-            padding: 30px;
+            padding: 30px 40px 40px 40px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            min-height: calc(100vh - 80px);
         }
         .header {
             text-align: center;
@@ -140,6 +560,116 @@
         .hidden {
             display: none !important;
         }
+        /* Filter Table with Clear Borders */
+        .filter-table {
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            overflow: hidden;
+        }
+
+        .filter-table td {
+            border-right: 2px solid #e3e8f0;
+            padding: 15px;
+            vertical-align: top;
+            background: white;
+            position: relative;
+        }
+
+        .filter-table td:last-child {
+            border-right: none;
+        }
+
+        .filter-table td:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .filter-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e3e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .filter-input:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.2), 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        .filter-input:hover {
+            border-color: #b8daff;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+        }
+
+        /* Filter Labels */
+        .filter-table label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Date Range Styling */
+        .filter-table .date-range-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .filter-table .date-input {
+            flex: 1;
+        }
+
+        .filter-table .date-separator {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 12px;
+        }
+
+        /* Filter Action Buttons */
+        .filter-table .filter-action-btn {
+            width: 100%;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            font-size: 13px;
+            padding: 8px 12px;
+            transition: all 0.2s ease;
+        }
+
+        .filter-table .filter-action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .filter-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .filter-badge .remove {
+            margin-left: 6px;
+            cursor: pointer;
+        }
         .loading {
             display: inline-block;
             width: 20px;
@@ -149,46 +679,77 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+        .email-processing-section {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+        }
+        .email-meta-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .email-meta-item {
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .email-meta-item h5 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        .email-meta-item p {
+            margin: 0;
+            color: #666;
+            font-size: 16px;
+        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .email-filter-btn {
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(102,126,234,0.15);
+        }
+
+        .email-filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.25);
+        }
+
+        .email-filter-btn:active {
+            transform: translateY(0);
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 Insurance AI Agent</h1>
+            <h1>Insurance AI Agent</h1>
             <p>Automated Email Processing - Simple Setup</p>
         </div>
 
-        <!-- System Status -->
-        <div class="status-grid">
-            <div class="status-card status-ready">
-                <div>📦 Dependencies</div>
-                <div>Auto-Installed</div>
-            </div>
-            <div class="status-card status-ready">
-                <div>☁️ Azure</div>
-                <div>Pre-Configured</div>
-            </div>
-            <div class="status-card {% if system_status.email_connected %}status-ready{% else %}status-pending{% endif %}">
-                <div>📧 Email</div>
-                <div>{% if system_status.email_connected %}Connected{% else %}Waiting{% endif %}</div>
-            </div>
-        </div>
+    
+        
+
+        <!-- Processed Emails Section (shown after processing) -->
+        <div id="processedEmailsSection" class="email-list"></div>
 
         <!-- Email Setup Only -->
         <div class="setup-section">
-            <h3>📧 Connect Your Email</h3>
+            <h3>Connect Your Email</h3>
             <p>Enter your email and app password. Dependencies and Azure are already configured!</p>
-            
             <form id="emailForm">
                 <div class="form-group">
                     <label for="email_address">Email Address:</label>
                     <input type="email" id="email_address" name="email_address" required placeholder="your.email@gmail.com">
                 </div>
-                
                 <div class="form-group">
                     <label for="app_password">App Password:</label>
                     <input type="password" id="app_password" name="app_password" required placeholder="Your app-specific password">
@@ -197,78 +758,710 @@
                         For Outlook: <a href="https://support.microsoft.com/en-us/account-billing/using-app-passwords-with-apps-that-don-t-support-two-step-verification-5896ed9b-4263-e681-128a-a6f2979a7944" target="_blank">Create App Password</a>
                     </small>
                 </div>
-                
                 <button type="submit" class="btn btn-primary" id="emailBtn">
                     <span id="emailText">Connect & Process Emails</span>
                     <span id="emailLoading" class="loading hidden"></span>
                 </button>
             </form>
-            
+
+            <!-- Email Processing Progress Bar -->
+            <div id="email-processing-progress" class="email-processing-progress" style="display: none;">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="email-progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="email-progress-percentage">0%</span>
+                        <span id="email-progress-message">Starting email processing...</span>
+                    </div>
+                    <div class="progress-steps">
+                        <div class="step" id="step-connect">Connect to Email Server</div>
+                        <div class="step" id="step-download">Download Emails</div>
+                        <div class="step" id="step-classify">Scan & Classify</div>
+                        <div class="step" id="step-complete">Complete</div>
+                    </div>
+                </div>
+            </div>
+
             <div id="emailResult"></div>
         </div>
-    </div>
+
+        <!-- Email Management Section -->
+        <div id="emailManagement" class="email-management">
+            <h3>Email Management</h3>
+            <!-- Email View Toggle Buttons -->
+            <div class="view-toggle" style="margin-bottom: 20px; text-align: center;">
+                <button id="unreadEmailsBtn" class="btn btn-primary email-filter-btn" style="width: auto; margin-right: 10px; border: 2px solid #667eea; font-weight: 600;" onclick="switchView('unread')">
+                    📧 Unread Emails (<span id="unreadCount">0</span>)
+                </button>
+                <button id="readEmailsBtn" class="btn btn-primary email-filter-btn" style="width: auto; border: 2px solid #667eea; font-weight: 600;" onclick="switchView('read')">
+                    📁 All Emails (<span id="readCount">0</span>)
+                </button>
+            </div>
+            <table class="filter-table" style="width:100%; margin-bottom:10px;">
+                <tr>
+                    <td style="width:20%;">
+                        <label for="sender-filter">Sender:</label>
+                        <input type="text" id="sender-filter" placeholder="Sender email..." class="filter-input" list="sender-suggestions">
+                        <datalist id="sender-suggestions"></datalist>
+                    </td>
+                    <td style="width:20%;">
+                        <label for="subject-filter">Subject:</label>
+                        <input type="text" id="subject-filter" placeholder="Subject contains..." class="filter-input">
+                    </td>
+                    <td style="width:25%;">
+                        <label>Date Range:</label>
+                        <div style="display:flex; gap:5px;">
+                            <input type="date" id="start-date" class="filter-input" style="flex:1;">
+                            <input type="date" id="end-date" class="filter-input" style="flex:1;">
+                        </div>
+                    </td>
+                    <td style="width:20%;">
+                        <label for="category-filter">Category:</label>
+                        <select id="category-filter" class="filter-input">
+                            <option value="">All</option>
+                        </select>
+                    </td>
+                    <td style="width:15%; vertical-align:bottom;">
+                        <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                            <button class="btn btn-primary filter-action-btn" style="background: linear-gradient(90deg,#667eea 0%,#5a6fd8 100%); border:none; box-shadow:0 2px 8px rgba(102,126,234,0.10); font-size:15px; font-weight:600; letter-spacing:0.5px; transition:background 0.2s;" onclick="applyFilters()">
+                                <span style="display:inline-flex;align-items:center;gap:6px;">🔍 Apply Filters</span>
+                            </button>
+                            <button class="btn btn-success filter-action-btn" style="background: linear-gradient(90deg,#f85032 0%,#e73827 100%); color:#fff; border:none; box-shadow:0 2px 8px rgba(248,80,50,0.10); font-size:15px; font-weight:600; letter-spacing:0.5px; transition:background 0.2s;" onclick="clearFilters()">
+                                <span style="display:inline-flex;align-items:center;gap:6px;">🧹 Clear All Filters</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+            <!-- Loading Progress Bar -->
+            <div id="loading-progress" class="loading-progress" style="display: none;">
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="progress-percentage">0%</span>
+                        <span id="progress-message">Loading emails...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bulk Delete Controls -->
+            <div id="bulk-delete-controls" class="bulk-delete-controls">
+                <div class="bulk-delete-info">
+                    <span id="selected-count">0</span> emails selected
+                </div>
+                <div class="bulk-delete-actions">
+                    <button class="bulk-cancel-btn" onclick="clearSelection()">Cancel</button>
+                    <button class="bulk-delete-btn" onclick="deleteSelectedEmails()">Delete Selected</button>
+                </div>
+            </div>
+
+            <div id="email-list" class="email-list"></div>
+        </div>
+
+       
 
     <script>
+        // Email Management Functions
+
+        async function loadEmails(filters = {}) {
+            try {
+                let url = '/api/processed-emails';
+                const params = new URLSearchParams();
+                if (filters.sender) params.append('sender', filters.sender);
+                if (filters.subject) params.append('subject', filters.subject);
+                if (filters.category) params.append('category', filters.category);
+                if (filters.start_date) params.append('start_date', filters.start_date);
+                if (filters.end_date) params.append('end_date', filters.end_date);
+                if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.success) {
+                    displayEmails(data.emails);
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                console.error('Error loading emails:', error);
+                document.getElementById('email-list').innerHTML = 
+                    '<div class="alert alert-error">Error loading emails: ' + error.message + '</div>';
+            }
+        }
+
+        // Store loaded emails globally for client-side filtering
+        let loadedEmails = [];
+        let currentSessionEmails = []; // Store emails from current session only
+        let allHistoricalEmails = []; // Store all historical emails
+
+        function displayEmails(emails) {
+            // Sort emails by date (newest first)
+            loadedEmails = [...emails].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            renderEmailCards(loadedEmails);
+            updateEmailCounts();
+        }
+
+        function renderEmailCards(emails) {
+            const emailList = document.getElementById('email-list');
+            if (!emails || emails.length === 0) {
+                emailList.innerHTML = '<div class="alert alert-info">No emails found</div>';
+                // Also clear sender suggestions
+                document.getElementById('sender-suggestions').innerHTML = '';
+                return;
+            }
+            emailList.innerHTML = '';
+            // Build sender suggestions set
+            const senderSet = new Set();
+            emails.forEach(email => {
+                if (email.from) senderSet.add(email.from);
+                else if (email.sender) senderSet.add(email.sender);
+            });
+            // Update datalist for sender autocomplete
+            const datalist = document.getElementById('sender-suggestions');
+            datalist.innerHTML = '';
+            Array.from(senderSet).forEach(sender => {
+                const opt = document.createElement('option');
+                opt.value = sender;
+                datalist.appendChild(opt);
+            });
+            emails.forEach((email, index) => {
+                const emailDiv = document.createElement('div');
+                emailDiv.className = 'email-item';
+                emailDiv.innerHTML = `
+                    <input type="checkbox" class="email-checkbox"
+                           onchange="toggleEmailSelection('${email.id}', this)"
+                           onclick="event.stopPropagation()">
+                    <div class="email-serial">#${index + 1}</div>
+                    <div class="email-summary">
+                        <span class="subject">${email.subject || 'No Subject'}</span>
+                        <span class="sender">${email.from || email.sender || 'Unknown'}</span>
+                        <span class="date">${email.date ? new Date(email.date).toLocaleString() : 'Unknown'}</span>
+                        <span class="category">${email.document_type || email.category || 'Unclassified'}</span>
+                        ${currentView === 'read' ? `<button class="delete-btn" onclick="event.stopPropagation();deleteEmail('${email.id}')">Delete</button>` : ''}
+                    </div>
+                    <div class="email-details">
+                        <div><strong>Serial Number:</strong> #${index + 1}</div>
+                        <div><strong>From:</strong> ${email.from || email.sender || 'Unknown'}</div>
+                        <div><strong>To:</strong> ${email.to || ''}</div>
+                        <div><strong>Date:</strong> ${email.date ? new Date(email.date).toLocaleString() : 'Unknown'}</div>
+                        <div><strong>Category:</strong> ${email.document_type || email.category || 'Unclassified'}</div>
+                        <div><strong>Confidence:</strong> ${email.classification_confidence ? (email.classification_confidence * 100).toFixed(0) + '%' : ''}</div>
+                        <div><strong>Attachments:</strong> ${email.attachments_count || 0}</div>
+                        ${email.email_blob_url ? `<div><strong>Blob URL:</strong> <a href=\"${email.email_blob_url}\" target=\"_blank\">View Email</a></div>` : ''}
+                        ${email.cosmos_document_id ? `<div><strong>CosmosDB ID:</strong> <code>${email.cosmos_document_id}</code></div>` : ''}
+                        ${email.ingestion_processed !== undefined ? `<div><strong>Ingestion Status:</strong> ${email.ingestion_processed ? '✅ Success' : '❌ Failed'}</div>` : ''}
+                        ${email.ingestion_error ? `<div style=\"color:#dc3545;\"><strong>Error:</strong> ${email.ingestion_error}</div>` : ''}
+                    </div>
+                `;
+                emailDiv.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('delete-btn') ||
+                        e.target.classList.contains('email-checkbox')) return;
+                    emailDiv.classList.toggle('expanded');
+                });
+                emailList.appendChild(emailDiv);
+            });
+        }
+
+
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/email-categories');
+                const data = await response.json();
+                if (data.success && Array.isArray(data.categories)) {
+                    const categorySelect = document.getElementById('category-filter');
+                    categorySelect.innerHTML = '<option value="">All</option>';
+                    data.categories.forEach(category => {
+                        const option = document.createElement('option');
+                        option.value = category;
+                        option.textContent = category;
+                        categorySelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading categories:', error);
+            }
+        }
+
+        async function deleteEmail(emailId) {
+            if (!confirm('Are you sure you want to delete this email?')) return;
+            
+            try {
+                const response = await fetch(`/api/emails/${emailId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadEmails(); // Reload the email list
+                } else {
+                    alert('Error deleting email: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error deleting email:', error);
+                alert('Error deleting email');
+            }
+        }
+
+        function filterByCategory(category) {
+            // Update active category visual
+            document.querySelectorAll('.category-tag').forEach(tag => {
+                tag.classList.remove('active');
+                if (category === null && tag.textContent === 'All' || 
+                    tag.textContent === category) {
+                    tag.classList.add('active');
+                }
+            });
+            
+            // Update active filters
+            if (category) {
+                activeFilters.category = category;
+            } else {
+                delete activeFilters.category;
+            }
+            
+            // Apply filter and update badges
+            loadEmails(activeFilters);
+            updateFilterBadges();
+        }
+
+        // Progress Bar Functions
+        function showProgressBar(message = 'Loading emails...') {
+            const progressBar = document.getElementById('loading-progress');
+            const progressFill = document.getElementById('progress-fill');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const progressMessage = document.getElementById('progress-message');
+
+            // Show the progress bar
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            progressMessage.textContent = message;
+
+            // Hide email list while loading
+            document.getElementById('email-list').style.opacity = '0.3';
+        }
+
+        function updateProgress(percentage, message = null) {
+            const progressFill = document.getElementById('progress-fill');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const progressMessage = document.getElementById('progress-message');
+
+            progressFill.style.width = percentage + '%';
+            progressPercentage.textContent = percentage + '%';
+
+            if (message) {
+                progressMessage.textContent = message;
+            }
+        }
+
+        function hideProgressBar() {
+            const progressBar = document.getElementById('loading-progress');
+
+            // Complete the progress bar first
+            updateProgress(100, 'Complete!');
+
+            // Hide after a short delay
+            setTimeout(() => {
+                progressBar.style.display = 'none';
+                document.getElementById('email-list').style.opacity = '1';
+            }, 500);
+        }
+
+        // Multi-Select Email Functions
+        let selectedEmails = new Set();
+
+        function toggleEmailSelection(emailId, checkbox) {
+            const emailItem = checkbox.closest('.email-item');
+
+            if (checkbox.checked) {
+                selectedEmails.add(emailId);
+                emailItem.classList.add('selected');
+            } else {
+                selectedEmails.delete(emailId);
+                emailItem.classList.remove('selected');
+            }
+
+            updateBulkDeleteControls();
+        }
+
+        function updateBulkDeleteControls() {
+            const bulkControls = document.getElementById('bulk-delete-controls');
+            const selectedCount = document.getElementById('selected-count');
+
+            if (selectedEmails.size > 0) {
+                bulkControls.classList.add('show');
+                selectedCount.textContent = selectedEmails.size;
+            } else {
+                bulkControls.classList.remove('show');
+            }
+        }
+
+        function clearSelection() {
+            selectedEmails.clear();
+
+            // Uncheck all checkboxes and remove selection styling
+            document.querySelectorAll('.email-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+                checkbox.closest('.email-item').classList.remove('selected');
+            });
+
+            updateBulkDeleteControls();
+        }
+
+        async function deleteSelectedEmails() {
+            if (selectedEmails.size === 0) return;
+
+            const emailIds = Array.from(selectedEmails);
+            const confirmMessage = `Are you sure you want to delete ${emailIds.length} selected email${emailIds.length > 1 ? 's' : ''}?`;
+
+            if (!confirm(confirmMessage)) return;
+
+            try {
+                showProgressBar('🗑️ Deleting selected emails...');
+                updateProgress(25, 'Preparing deletion...');
+
+                const response = await fetch('/api/emails/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email_ids: emailIds
+                    })
+                });
+
+                updateProgress(75, 'Processing deletion...');
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    updateProgress(90, 'Refreshing email list...');
+                    clearSelection();
+                    await loadEmailsWithView(); // Reload the email list
+                    hideProgressBar();
+                    alert(`Successfully deleted ${emailIds.length} email${emailIds.length > 1 ? 's' : ''}!`);
+                } else {
+                    hideProgressBar();
+                    alert('Error deleting emails: ' + result.message);
+                }
+            } catch (error) {
+                hideProgressBar();
+                console.error('Error deleting emails:', error);
+                alert('Error deleting emails: ' + error.message);
+            }
+        }
+
+        // Email Processing Progress Functions
+        function showEmailProcessingProgress() {
+            const progressBar = document.getElementById('email-processing-progress');
+            const progressFill = document.getElementById('email-progress-fill');
+            const progressPercentage = document.getElementById('email-progress-percentage');
+            const progressMessage = document.getElementById('email-progress-message');
+
+            // Show the progress bar
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+            progressPercentage.textContent = '0%';
+            progressMessage.textContent = 'Starting email processing...';
+
+            // Reset all steps
+            document.querySelectorAll('.progress-steps .step').forEach(step => {
+                step.classList.remove('active', 'completed');
+            });
+        }
+
+        function updateEmailProgress(percentage, message, activeStep = null) {
+            const progressFill = document.getElementById('email-progress-fill');
+            const progressPercentage = document.getElementById('email-progress-percentage');
+            const progressMessage = document.getElementById('email-progress-message');
+
+            progressFill.style.width = percentage + '%';
+            progressPercentage.textContent = percentage + '%';
+            progressMessage.textContent = message;
+
+            // Update step indicators
+            if (activeStep) {
+                // Mark previous steps as completed
+                document.querySelectorAll('.progress-steps .step').forEach(step => {
+                    step.classList.remove('active');
+                    if (step.id !== activeStep) {
+                        step.classList.add('completed');
+                    }
+                });
+
+                // Mark current step as active
+                const currentStep = document.getElementById(activeStep);
+                if (currentStep) {
+                    currentStep.classList.add('active');
+                    currentStep.classList.remove('completed');
+                }
+            }
+        }
+
+        function hideEmailProcessingProgress() {
+            const progressBar = document.getElementById('email-processing-progress');
+
+            // Complete all steps
+            updateEmailProgress(100, 'Email processing complete!', 'step-complete');
+
+            // Hide after a short delay
+            setTimeout(() => {
+                progressBar.style.display = 'none';
+            }, 2000);
+        }
+
+        // Setup event listeners
+        let currentView = 'unread'; // Track which view we're in: 'unread' or 'read'
+        
+        async function updateEmailCounts() {
+            try {
+                // Get current session count
+                const sessionResponse = await fetch('/api/current-session-emails');
+                const sessionData = await sessionResponse.json();
+                const unreadCount = sessionData.success ? sessionData.emails.length : 0;
+
+                // Get historical count from Azure Blob Storage
+                const historicalResponse = await fetch('/api/all-historical-emails');
+                const historicalData = await historicalResponse.json();
+                const readCount = historicalData.success ? historicalData.emails.length : 0;
+
+                // Update button labels
+                document.getElementById('unreadCount').textContent = unreadCount;
+                document.getElementById('readCount').textContent = readCount;
+
+                console.log(`📊 Email counts updated: Unread=${unreadCount}, Historical=${readCount}`);
+
+            } catch (error) {
+                console.error('Error updating email counts:', error);
+                // Fallback to current data
+                document.getElementById('unreadCount').textContent = currentSessionEmails.length;
+                document.getElementById('readCount').textContent = allHistoricalEmails.length;
+            }
+        }
+
+        window.switchView = function(view) {
+            currentView = view;
+
+            // Update button styles with better visual feedback
+            const unreadBtn = document.getElementById('unreadEmailsBtn');
+            const readBtn = document.getElementById('readEmailsBtn');
+
+            if (view === 'unread') {
+                unreadBtn.style.backgroundColor = '#4a5568';
+                unreadBtn.style.borderColor = '#4a5568';
+                unreadBtn.style.transform = 'scale(1.05)';
+                readBtn.style.backgroundColor = '#667eea';
+                readBtn.style.borderColor = '#667eea';
+                readBtn.style.transform = 'scale(1)';
+            } else {
+                readBtn.style.backgroundColor = '#4a5568';
+                readBtn.style.borderColor = '#4a5568';
+                readBtn.style.transform = 'scale(1.05)';
+                unreadBtn.style.backgroundColor = '#667eea';
+                unreadBtn.style.borderColor = '#667eea';
+                unreadBtn.style.transform = 'scale(1)';
+            }
+
+            // Load appropriate emails with current filters
+            loadEmailsWithView();
+        };
+
+        async function loadEmailsWithView(filters = {}) {
+            try {
+                let url, response, data;
+
+                // Show progress bar based on current view
+                if (currentView === 'unread') {
+                    showProgressBar('📧 Loading current session emails...');
+                } else {
+                    showProgressBar('📁 Loading all historical emails from Azure...');
+                }
+
+                // Simulate progress steps
+                updateProgress(25, 'Connecting to data source...');
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                if (currentView === 'unread') {
+                    // Load ONLY current session emails (emails processed during this visit)
+                    url = '/api/current-session-emails';
+                    const params = new URLSearchParams();
+
+                    // Add filters for current session
+                    if (filters.sender) params.append('sender', filters.sender);
+                    if (filters.subject) params.append('subject', filters.subject);
+                    if (filters.category) params.append('category', filters.category);
+                    if (filters.start_date) params.append('start_date', filters.start_date);
+                    if (filters.end_date) params.append('end_date', filters.end_date);
+
+                    if (params.toString()) {
+                        url += '?' + params.toString();
+                    }
+
+                    updateProgress(50, 'Fetching current session emails...');
+                    response = await fetch(url);
+
+                    updateProgress(75, 'Processing email data...');
+                    data = await response.json();
+
+                    if (data.success) {
+                        currentSessionEmails = data.emails;
+                        updateProgress(90, 'Displaying emails...');
+                        displayEmails(data.emails);
+                        hideProgressBar();
+
+                        if (data.emails.length === 0) {
+                            document.getElementById('email-list').innerHTML = '<div class="alert alert-info">📧 No emails processed in this session yet.<br><br>Connect your email and process some emails to see them here!</div>';
+                        }
+                    } else {
+                        hideProgressBar();
+                        document.getElementById('email-list').innerHTML = '<div class="alert alert-error">Failed to load current session emails</div>';
+                    }
+
+                } else {
+                    // Load ALL historical emails directly from Azure Blob Storage
+                    // This completely ignores current session data!
+                    url = '/api/all-historical-emails';
+
+                    console.log('🔍 Loading ALL historical emails from Azure Blob Storage...');
+                    updateProgress(50, 'Scanning Azure Blob Storage...');
+                    response = await fetch(url);
+
+                    updateProgress(75, 'Processing historical emails...');
+                    data = await response.json();
+
+                    if (data.success) {
+                        allHistoricalEmails = data.emails;
+                        updateProgress(90, 'Displaying historical emails...');
+                        displayEmails(data.emails);
+                        hideProgressBar();
+                        console.log(`📁 Loaded ${data.emails.length} historical emails from Azure`);
+
+                        if (data.emails.length === 0) {
+                            document.getElementById('email-list').innerHTML = '<div class="alert alert-info">📁 No historical emails found in Azure Blob Storage.<br><br>Process some emails first to build your email history!</div>';
+                        }
+                    } else {
+                        hideProgressBar();
+                        document.getElementById('email-list').innerHTML = '<div class="alert alert-error">Failed to load historical emails from Azure Blob Storage</div>';
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error loading emails:', error);
+                hideProgressBar();
+                document.getElementById('email-list').innerHTML = '<div class="alert alert-error">Error loading emails: ' + error.message + '</div>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Setup filter listeners
+            const senderFilter = document.getElementById('sender-filter');
+            const subjectFilter = document.getElementById('subject-filter');
+            const startDate = document.getElementById('start-date');
+            const endDate = document.getElementById('end-date');
+            const categoryFilter = document.getElementById('category-filter');
+            window.activeFilters = {};
+
+            window.clearFilters = function() {
+                senderFilter.value = '';
+                subjectFilter.value = '';
+                startDate.value = '';
+                endDate.value = '';
+                categoryFilter.value = '';
+                window.activeFilters = {};
+                renderEmailCards(loadedEmails);
+            };
+
+            window.applyFilters = function() {
+                let filtered = loadedEmails;
+                if (senderFilter.value) {
+                    filtered = filtered.filter(e => (e.from || e.sender || '').toLowerCase().includes(senderFilter.value.toLowerCase()));
+                }
+                if (subjectFilter.value) {
+                    filtered = filtered.filter(e => (e.subject || '').toLowerCase().includes(subjectFilter.value.toLowerCase()));
+                }
+                if (categoryFilter.value) {
+                    filtered = filtered.filter(e => (e.document_type || e.category || '').toLowerCase() === categoryFilter.value.toLowerCase());
+                }
+                if (startDate.value) {
+                    filtered = filtered.filter(e => e.date && new Date(e.date) >= new Date(startDate.value));
+                }
+                if (endDate.value) {
+                    filtered = filtered.filter(e => e.date && new Date(e.date) <= new Date(endDate.value));
+                }
+                renderEmailCards(filtered);
+            };
+
+            // Initialize with unread view
+            switchView('unread');
+            loadCategories();
+        });
+
         // Email setup and processing form handler
         document.getElementById('emailForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
             const btn = document.getElementById('emailBtn');
             const text = document.getElementById('emailText');
             const loading = document.getElementById('emailLoading');
             const result = document.getElementById('emailResult');
-            
+
+            // Disable button and show loading
             btn.disabled = true;
             text.classList.add('hidden');
             loading.classList.remove('hidden');
-            
+
+            // Show email processing progress bar
+            showEmailProcessingProgress();
+
             const formData = new FormData(this);
-            
+
             try {
+                // Step 1: Connect to Email Server
+                updateEmailProgress(25, '🔗 Connecting to email server...', 'step-connect');
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate connection time
+
+                // Step 2: Download Emails
+                updateEmailProgress(50, '📥 Downloading emails from server...', 'step-download');
+
                 const response = await fetch('/process/emails', {
                     method: 'POST',
                     body: formData
                 });
-                
+
+                // Step 3: Scan & Classify
+                updateEmailProgress(75, '🔍 Scanning and classifying emails...', 'step-classify');
+
                 const data = await response.json();
-                
+                // Step 4: Complete
+                updateEmailProgress(90, '✅ Finalizing email processing...', 'step-complete');
+
+                // Always show latest emails after processing
+                document.getElementById('emailManagement').classList.remove('hidden');
+                await loadEmailsWithView({});
+                loadCategories();
+
                 if (data.status === 'success') {
-                    let resultHtml = `<div class="alert alert-success">✅ ${data.message}<br>📧 Provider: ${data.email_provider}</div>`;
-                    
-                    if (data.processed_emails && data.processed_emails.length > 0) {
-                        resultHtml += '<div style="margin-top: 20px;"><h4>📬 Processed Emails:</h4>';
-                        data.processed_emails.forEach(email => {
-                            resultHtml += `
-                                <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #28a745;">
-                                    <h5 style="margin: 0 0 10px 0; color: #333;">📧 Subject: ${email.subject || 'No Subject'}</h5>
-                                    <p style="margin: 5px 0; color: #666;"><strong>👤 From:</strong> ${email.from || 'Unknown'}</p>
-                                    <p style="margin: 5px 0; color: #666;"><strong>📅 Date:</strong> ${email.date || 'Unknown'}</p>
-                                    <p style="margin: 5px 0; color: #666;"><strong>🆔 CosmosDB Document ID:</strong> <code>${email.cosmos_document_id || 'Not saved'}</code></p>
-                                    <p style="margin: 5px 0; color: #666;"><strong>🔗 Blob URL:</strong> <a href="${email.email_blob_url || '#'}" target="_blank" style="word-break: break-all; color: #007bff;">${email.email_blob_url || 'Not available'}</a></p>
-                                    <p style="margin: 5px 0; color: #666;"><strong>📎 Attachments:</strong> ${email.attachments_count || 0}</p>
-                                    <p style="margin: 5px 0; color: #666;"><strong>✅ Ingestion Status:</strong> ${email.ingestion_processed ? '✅ Success' : '❌ Failed'}</p>
-                                    <p style="margin: 5px 0; color: #666;"><strong>📄 Document Type:</strong> ${email.document_type || 'Not classified'}</p>
-                                    <p style="margin: 5px 0; color: #666;"><strong>🔢 Classification Confidence:</strong> ${email.classification_confidence || 'N/A'}</p>
-                                    ${email.ingestion_error ? `<p style="margin: 5px 0; color: #dc3545;"><strong>❌ Error:</strong> ${email.ingestion_error}</p>` : ''}
-                                </div>
-                            `;
-                        });
-                        resultHtml += '</div>';
-                    }
-                    
+                    updateEmailProgress(100, '🎉 Email processing completed successfully!', 'step-complete');
+                    let resultHtml = `<div class=\"alert alert-success\">✅ ${data.message}<br>Provider: ${data.email_provider}</div>`;
                     result.innerHTML = resultHtml;
+                    hideEmailProcessingProgress();
                 } else {
-                    result.innerHTML = `<div class="alert alert-error">❌ ${data.detail || data.message}</div>`;
+                    hideEmailProcessingProgress();
+                    result.innerHTML = `<div class=\"alert alert-error\">❌ ${data.detail || data.message}</div>`;
                 }
-                
             } catch (error) {
-                result.innerHTML = `<div class="alert alert-error">❌ Processing failed: ${error.message}</div>`;
+                hideEmailProcessingProgress();
+                result.innerHTML = `<div class=\"alert alert-error\">❌ Processing failed: ${error.message}</div>`;
             } finally {
                 btn.disabled = false;
                 text.classList.remove('hidden');
                 loading.classList.add('hidden');
             }
         });
+
+        // Show email management section by default
+        document.getElementById('emailManagement').classList.remove('hidden');
     </script>
 </body>
 </html>

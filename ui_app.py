@@ -55,6 +55,7 @@ import imaplib         # IMAP protocol client for email processing
 import email           # Email parsing and handling utilities
 import json            # JSON data serialization/deserialization
 from email.header import decode_header  # Email header decoding for international characters
+from azure.cosmos import CosmosClient    # Azure Cosmos DB client
 
 # ========== ENVIRONMENT CONFIGURATION ==========
 # Environment variable loading from .env files
@@ -285,6 +286,39 @@ templates = Jinja2Templates(directory="templates")
 # Mount static files directory for CSS, JS, images
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# ========== EMAIL STORAGE ==========
+# In-memory storage for processed emails
+processed_emails = []
+unread_emails = []
+
+@app.get("/emails/status")
+async def get_email_status():
+    """Get the current status of processed and unread emails."""
+    return {
+        "unread_emails": unread_emails,
+        "all_emails": processed_emails
+    }
+
+@app.post("/emails/delete")
+async def delete_emails(request: Request):
+    """Delete selected emails from the system."""
+    try:
+        data = await request.json()
+        email_ids = data.get("email_ids", [])
+        
+        if not email_ids:
+            return {"status": "error", "message": "No email IDs provided"}
+        
+        # Remove from both unread and processed lists
+        global unread_emails, processed_emails
+        unread_emails = [email for email in unread_emails if email["id"] not in email_ids]
+        processed_emails = [email for email in processed_emails if email["id"] not in email_ids]
+        
+        return {"status": "success", "message": f"Successfully deleted {len(email_ids)} email(s)"}
+    except Exception as e:
+        logger.error(f"Error deleting emails: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 # ========== GLOBAL APPLICATION STATE ==========
 # System status tracking for different components
 system_status = {
@@ -420,9 +454,37 @@ def generate_folder_sas_url(storage_account, container_name, folder_name):
         # Fallback to Azure Storage Explorer style URL
         return f"https://portal.azure.com/#@/resource/subscriptions/your-subscription/resourceGroups/your-rg/providers/Microsoft.Storage/storageAccounts/{storage_account}/containersList"
 
-# ========== PROCESSED EMAILS STORAGE ==========
+# ========== EMAIL PROCESSING STATE ==========
 # In-memory storage for processed email results (in production, use database)
 processed_emails = []
+# Current session's unread emails
+unread_emails = []
+# Track emails processed in current session only
+current_session_emails = []
+# Session start time to track what's "new" in this session
+session_start_time = datetime.now()
+
+async def process_email(email_data):
+    """Process a single email and update the email lists."""
+    try:
+        # Add to unread emails for current session
+        email_info = {
+            "id": email_data.get("email_id", str(uuid.uuid4())),
+            "subject": email_data.get("subject", "No Subject"),
+            "from": email_data.get("from", "Unknown"),
+            "date": email_data.get("date", datetime.now().isoformat()),
+            "attachments_count": len(email_data.get("attachments", [])),
+        }
+        
+        # Add to both lists
+        unread_emails.append(email_info)
+        if email_info not in processed_emails:
+            processed_emails.append(email_info)
+            
+        return True
+    except Exception as e:
+        logger.error(f"Error processing email: {str(e)}")
+        return False
 
 # ========== MAIN WEB INTERFACE ENDPOINTS ==========
 
@@ -624,20 +686,6 @@ async def setup_email(
     except Exception as e:
         return {"status": "error", "message": str(e)}
         
-        return {
-            "status": "success",
-            "message": f"✅ Email connected successfully! Found {unread_count} unread emails.",
-            "provider": f"{provider_name} ({host}:{port})",
-            "total_emails": total_emails,
-            "unread_emails": unread_count,
-            "connection_details": {
-                "host": host,
-                "port": port,
-                "folder": folder,
-                "provider": provider_name
-            }
-        }
-        
     except imaplib.IMAP4.error as e:
         logger.error(f"IMAP authentication error: {str(e)}")
         system_status["email_connected"] = False
@@ -690,6 +738,11 @@ async def process_emails(request: Request):
         # Mark email as connected
         system_status["email_connected"] = True
         
+        # Clear current session emails before starting new processing
+        global current_session_emails, session_start_time
+        current_session_emails.clear()
+        session_start_time = datetime.now()
+
         # Start processing immediately
         processing_results = await process_unread_emails()
         
@@ -713,6 +766,12 @@ async def start_processing():
     
     try:
         system_status["processing_active"] = True
+        
+        # Clear unread emails list for new session
+        global unread_emails, current_session_emails, session_start_time
+        unread_emails.clear()
+        current_session_emails.clear()
+        session_start_time = datetime.now()
         
         # Process emails in background
         asyncio.create_task(process_unread_emails())
@@ -1104,101 +1163,142 @@ def classify_with_keywords(text: str) -> dict:
 
 async def process_single_email(mail, email_id, blob_service_client):
     """Process a single email and upload to Azure."""
-    # Fetch email
-    status, msg_data = mail.fetch(email_id, '(RFC822)')
-    email_body = msg_data[0][1]
-    email_message = email.message_from_bytes(email_body)
     
-    # Generate unique folder name
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    folder_name = f"email_{timestamp}_{email_id.decode()}"
-    
-    # Extract email metadata
-    metadata = extract_email_metadata(email_message)
-    
-    # Upload email file with error handling
-    email_blob_name = f"{folder_name}/original_email.eml"
+    email_id_str = None
     try:
-        blob_client = blob_service_client.get_blob_client(
-            container=azure_config["container_name"],
-            blob=email_blob_name
-        )
-        upload_result = blob_client.upload_blob(email_body, overwrite=True)
-        logger.info(f"Successfully uploaded email to {email_blob_name}")
-    except Exception as e:
-        logger.error(f"Failed to upload email blob {email_blob_name}: {str(e)}")
-        raise
+        # Create initial email info for unread list
+        email_id_str = email_id.decode()
+        email_info = {
+            "id": email_id_str,
+            "subject": "Loading...",
+            "from": "Loading...",
+            "date": datetime.now().isoformat(),
+            "attachments_count": 0,
+            "processed_at": datetime.now().isoformat()
+        }
+        
+        # Add to unread emails list immediately
+        unread_emails.append(email_info)
+        
+        # Fetch email
+        status, msg_data = mail.fetch(email_id, '(RFC822)')
+        if not msg_data or not msg_data[0] or len(msg_data[0]) < 2:
+            raise Exception("Failed to fetch email data")
+        
+        email_body = msg_data[0][1]
+        email_message = email.message_from_bytes(email_body)
+        
+        # Generate unique folder name using UUID for better uniqueness
+        email_uuid = str(uuid.uuid4())
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        folder_name = f"email_{timestamp}_{email_uuid}"
+        
+        try:
+            # Extract email metadata with error handling
+            metadata = extract_email_metadata(email_message)
+            
+            # Update email info with actual data
+            email_info.update({
+                "id": email_id_str,  # Keep original ID consistent
+                "email_uuid": email_uuid,  # Add UUID for storage
+                "subject": metadata.get("subject", "No Subject"),
+                "from": metadata.get("from", "Unknown"),
+                "date": metadata.get("date", datetime.now().isoformat()),
+                "folder_name": folder_name  # Add folder name for reference
+            })
+        except Exception as e:
+            logger.error(f"Failed to extract email metadata: {str(e)}")
+            raise
+        
+        # Upload email file with error handling
+        email_blob_name = f"{folder_name}/original_email.eml"
+        try:
+            blob_client = blob_service_client.get_blob_client(
+                container=azure_config["container_name"],
+                blob=email_blob_name
+            )
+            upload_result = blob_client.upload_blob(email_body, overwrite=True)
+            logger.info(f"Successfully uploaded email to {email_blob_name}")
+        except Exception as e:
+            logger.error(f"Failed to upload email blob {email_blob_name}: {str(e)}")
+            raise
 
-    # Upload metadata with error handling
-    metadata_blob_name = f"{folder_name}/metadata.json"
-    try:
-        metadata_client = blob_service_client.get_blob_client(
-            container=azure_config["container_name"],
-            blob=metadata_blob_name
-        )
-        metadata_json = json.dumps(metadata, default=str, indent=2)
-        upload_result = metadata_client.upload_blob(metadata_json, overwrite=True)
-        logger.info(f"Successfully uploaded metadata to {metadata_blob_name}")
-    except Exception as e:
-        logger.error(f"Failed to upload metadata blob {metadata_blob_name}: {str(e)}")
-        raise    # Process attachments and extract text
-    attachments_info = []
-    ocr_results = []
-    
-    if email_message.is_multipart():
-        for part in email_message.walk():
-            if part.get_content_disposition() == 'attachment':
-                filename = part.get_filename()
-                if filename:
-                    try:
-                        # Upload attachment with error handling
-                        attachment_data = part.get_payload(decode=True)
-                        if not attachment_data:
-                            logger.warning(f"No data found for attachment {filename}")
-                            continue
+        # Upload metadata with error handling
+        metadata_blob_name = f"{folder_name}/metadata.json"
+        try:
+            metadata_client = blob_service_client.get_blob_client(
+                container=azure_config["container_name"],
+                blob=metadata_blob_name
+            )
+            metadata_json = json.dumps(metadata, default=str, indent=2)
+            upload_result = metadata_client.upload_blob(metadata_json, overwrite=True)
+            logger.info(f"Successfully uploaded metadata to {metadata_blob_name}")
+        except Exception as e:
+            logger.error(f"Failed to upload metadata blob {metadata_blob_name}: {str(e)}")
+            raise
+        
+        # Process attachments and extract text
+        attachments_info = []
+        ocr_results = []
+        
+        if email_message.is_multipart():
+            for part in email_message.walk():
+                if part.get_content_disposition() == 'attachment':
+                    filename = part.get_filename()
+                    if filename:
+                        try:
+                            # Upload attachment with error handling
+                            attachment_data = part.get_payload(decode=True)
+                            if not attachment_data:
+                                logger.warning(f"No data found for attachment {filename}")
+                                continue
                             
-                        attachment_blob_name = f"{folder_name}/attachments/{filename}"
-                        
-                        attachment_client = blob_service_client.get_blob_client(
-                            container=azure_config["container_name"],
-                            blob=attachment_blob_name
-                        )
-                        upload_result = attachment_client.upload_blob(attachment_data, overwrite=True)
-                        logger.info(f"Successfully uploaded attachment {filename} to {attachment_blob_name}")
-                        
-                        # Extract text if it's a PDF
-                        if filename.lower().endswith('.pdf'):
-                            try:
-                                ocr_text = extract_pdf_text(attachment_data)
-                                if ocr_text and ocr_text.strip():
-                                    # Upload OCR result
-                                    ocr_blob_name = f"{folder_name}/ocr/{filename}_text.txt"
-                                    ocr_client = blob_service_client.get_blob_client(
-                                        container=azure_config["container_name"],
-                                        blob=ocr_blob_name
-                                    )
-                                    upload_result = ocr_client.upload_blob(ocr_text, overwrite=True)
-                                    logger.info(f"Successfully uploaded OCR text for {filename}")
-                                    
-                                    ocr_results.append({
-                                        "filename": filename,
-                                        "text_length": len(ocr_text),
-                                        "blob_path": ocr_blob_name
-                                    })
-                                else:
-                                    logger.warning(f"No text extracted from PDF {filename}")
-                            except Exception as e:
-                                logger.error(f"OCR extraction failed for {filename}: {str(e)}")
-                        
-                        attachments_info.append({
-                            "filename": filename,
-                            "size": len(attachment_data),
-                            "blob_path": attachment_blob_name
-                        })
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to process attachment {filename}: {str(e)}")
-                        continue
+                            attachment_blob_name = f"{folder_name}/attachments/{filename}"
+                            
+                            attachment_client = blob_service_client.get_blob_client(
+                                container=azure_config["container_name"],
+                                blob=attachment_blob_name
+                            )
+                            upload_result = attachment_client.upload_blob(attachment_data, overwrite=True)
+                            logger.info(f"Successfully uploaded attachment {filename} to {attachment_blob_name}")
+                            
+                            # Extract text if it's a PDF
+                            if filename.lower().endswith('.pdf'):
+                                try:
+                                    ocr_text = extract_pdf_text(attachment_data)
+                                    if ocr_text and ocr_text.strip():
+                                        # Upload OCR result
+                                        ocr_blob_name = f"{folder_name}/ocr/{filename}_text.txt"
+                                        ocr_client = blob_service_client.get_blob_client(
+                                            container=azure_config["container_name"],
+                                            blob=ocr_blob_name
+                                        )
+                                        upload_result = ocr_client.upload_blob(ocr_text, overwrite=True)
+                                        logger.info(f"Successfully uploaded OCR text for {filename}")
+                                        
+                                        ocr_results.append({
+                                            "filename": filename,
+                                            "text_length": len(ocr_text),
+                                            "blob_path": ocr_blob_name
+                                        })
+                                    else:
+                                        logger.warning(f"No text extracted from PDF {filename}")
+                                except Exception as e:
+                                    logger.error(f"OCR extraction failed for {filename}: {str(e)}")
+                                    continue
+                            
+                            attachments_info.append({
+                                "filename": filename,
+                                "size": len(attachment_data),
+                                "blob_path": attachment_blob_name
+                            })
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to process attachment {filename}: {str(e)}")
+                            continue
+    except Exception as e:
+        logger.error(f"Failed to process email {email_id_str}: {str(e)}")
+        raise
     
     # Generate folder URLs for easy access
     folder_urls = generate_folder_sas_url(azure_config['storage_account'], azure_config['container_name'], folder_name)
@@ -1276,7 +1376,26 @@ async def process_single_email(mail, email_id, blob_service_client):
                 classification_result = classify_document_simple(ocr_text)
                 processed_email["document_type"] = classification_result["document_type"]
                 processed_email["classification_confidence"] = classification_result["confidence"]
-                
+
+                # UPDATE AZURE BLOB STORAGE METADATA WITH CLASSIFICATION!
+                try:
+                    # Update the metadata with classification results
+                    metadata["document_type"] = classification_result["document_type"]
+                    metadata["classification_confidence"] = classification_result["confidence"]
+
+                    # Re-upload the updated metadata to Azure Blob Storage
+                    metadata_blob_name = f"{folder_name}/metadata.json"
+                    metadata_client = blob_service_client.get_blob_client(
+                        container=azure_config["container_name"],
+                        blob=metadata_blob_name
+                    )
+                    updated_metadata_json = json.dumps(metadata, default=str, indent=2)
+                    metadata_client.upload_blob(updated_metadata_json, overwrite=True)
+                    logger.info(f"✅ Updated Azure metadata with classification: {classification_result['document_type']}")
+
+                except Exception as metadata_error:
+                    logger.error(f"Failed to update Azure metadata with classification: {str(metadata_error)}")
+
             except Exception as e:
                 logger.error(f"Error reading OCR text for classification: {str(e)}")
                 processed_email["document_type"] = "OCR Error"
@@ -1284,18 +1403,60 @@ async def process_single_email(mail, email_id, blob_service_client):
         else:
             processed_email["document_type"] = "No attachments"
             processed_email["classification_confidence"] = ""
+
+            # UPDATE AZURE METADATA FOR NO ATTACHMENTS CASE
+            try:
+                metadata["document_type"] = "No attachments"
+                metadata["classification_confidence"] = "N/A"
+
+                metadata_blob_name = f"{folder_name}/metadata.json"
+                metadata_client = blob_service_client.get_blob_client(
+                    container=azure_config["container_name"],
+                    blob=metadata_blob_name
+                )
+                updated_metadata_json = json.dumps(metadata, default=str, indent=2)
+                metadata_client.upload_blob(updated_metadata_json, overwrite=True)
+                logger.info("✅ Updated Azure metadata: No attachments")
+
+            except Exception as metadata_error:
+                logger.error(f"Failed to update Azure metadata for no attachments: {str(metadata_error)}")
+
     except Exception as e:
         logger.error(f"Error in document classification: {str(e)}")
         processed_email["document_type"] = "Classification Error"
         processed_email["classification_confidence"] = ""
+
+        # UPDATE AZURE METADATA FOR CLASSIFICATION ERROR
+        try:
+            metadata["document_type"] = "Classification Error"
+            metadata["classification_confidence"] = "0%"
+
+            metadata_blob_name = f"{folder_name}/metadata.json"
+            metadata_client = blob_service_client.get_blob_client(
+                container=azure_config["container_name"],
+                blob=metadata_blob_name
+            )
+            updated_metadata_json = json.dumps(metadata, default=str, indent=2)
+            metadata_client.upload_blob(updated_metadata_json, overwrite=True)
+            logger.info("✅ Updated Azure metadata: Classification Error")
+
+        except Exception as metadata_error:
+            logger.error(f"Failed to update Azure metadata for classification error: {str(metadata_error)}")
     
     processed_emails.append(processed_email)
+
+    # Add to current session emails (emails processed during this visit)
+    current_session_emails.append(processed_email)
+
+    # Add to processed emails list if not already there
+    if email_info not in processed_emails:
+        processed_emails.append(email_info)
     
     # Mark email as read
     mail.store(email_id, '+FLAGS', '\\Seen')
     
     # Return processing results
-    return processed_email
+    return email_info
 
 def extract_email_metadata(email_message):
     """Extract metadata from email message."""
@@ -1340,12 +1501,18 @@ def extract_email_body(email_message):
     return body.strip()
 
 def extract_pdf_text(pdf_data):
-    """Extract text from PDF data using multiple methods."""
+    """
+    Extract text from PDF data using available methods.
+    Gracefully handles missing dependencies by trying different methods.
+    """
     extracted_text = ""
     
-    try:
-        # Method 1: Try PyPDF2 for selectable text
+    # Method 1: Try PyPDF2 for selectable text
+    if not extracted_text:
         try:
+            import pkg_resources
+            pkg_resources.require("PyPDF2")
+            
             import PyPDF2
             import io
             
@@ -1361,13 +1528,17 @@ def extract_pdf_text(pdf_data):
             if text.strip():
                 extracted_text = text.strip()
                 logger.info("Successfully extracted text using PyPDF2")
-                return extracted_text
-                
-        except ImportError:
+        except (ImportError, pkg_resources.DistributionNotFound):
             logger.warning("PyPDF2 not installed")
-            
-        # Method 2: Try pdfplumber for better text extraction
+        except Exception as e:
+            logger.warning(f"PyPDF2 extraction failed: {e}")
+    
+    # Method 2: Try pdfplumber for better text extraction
+    if not extracted_text:
         try:
+            import pkg_resources
+            pkg_resources.require("pdfplumber")
+            
             import pdfplumber
             import io
             
@@ -1383,59 +1554,61 @@ def extract_pdf_text(pdf_data):
             if text.strip():
                 extracted_text = text.strip()
                 logger.info("Successfully extracted text using pdfplumber")
-                return extracted_text
-                
-        except ImportError:
+        except (ImportError, pkg_resources.DistributionNotFound):
             logger.warning("pdfplumber not installed")
+        except Exception as e:
+            logger.warning(f"pdfplumber extraction failed: {e}")
+    
+    # Method 3: OCR for image-based PDFs using pytesseract
+    if not extracted_text:
+        try:
+            import pkg_resources
+            pkg_resources.require(["PyMuPDF", "pytesseract", "Pillow"])
             
-        # Method 3: OCR for image-based PDFs using pytesseract
-        if not extracted_text.strip():
-            try:
-                import fitz  # PyMuPDF
-                import pytesseract
-                from PIL import Image
-                import io
+            import fitz  # PyMuPDF
+            import pytesseract
+            from PIL import Image
+            import io
+            
+            logger.info("Attempting OCR extraction for image-based PDF")
+            
+            # Convert PDF to images and OCR each page
+            pdf_document = fitz.open(stream=pdf_data, filetype="pdf")
+            ocr_text = ""
+            
+            for page_num in range(len(pdf_document)):
+                page = pdf_document.load_page(page_num)
+                pix = page.get_pixmap()
+                img_data = pix.tobytes("png")
                 
-                logger.info("Attempting OCR extraction for image-based PDF")
+                # Convert to PIL Image
+                image = Image.open(io.BytesIO(img_data))
                 
-                # Convert PDF to images and OCR each page
-                pdf_document = fitz.open(stream=pdf_data, filetype="pdf")
-                ocr_text = ""
-                
-                for page_num in range(len(pdf_document)):
-                    page = pdf_document.load_page(page_num)
-                    pix = page.get_pixmap()
-                    img_data = pix.tobytes("png")
-                    
-                    # Convert to PIL Image
-                    image = Image.open(io.BytesIO(img_data))
-                    
-                    # Perform OCR
-                    page_text = pytesseract.image_to_string(image, lang='eng')
-                    if page_text and page_text.strip():
-                        ocr_text += f"Page {page_num + 1}:\n{page_text}\n\n"
-                
-                pdf_document.close()
-                
-                if ocr_text.strip():
-                    extracted_text = ocr_text.strip()
-                    logger.info(f"Successfully extracted text using OCR ({len(extracted_text)} characters)")
-                    return extracted_text
-                    
-            except ImportError as e:
-                logger.warning(f"OCR libraries not installed: {e}")
-            except Exception as e:
-                logger.warning(f"OCR extraction failed: {e}")
-        
-        # If no text extracted, return info about the PDF
-        if not extracted_text.strip():
-            return f"PDF file detected ({len(pdf_data)} bytes) - No extractable text found. Install pytesseract and PyMuPDF for OCR support."
-        
-        return extracted_text
-        
-    except Exception as e:
-        logger.error(f"PDF text extraction error: {str(e)}")
-        return f"PDF processing failed: {str(e)}"
+                # Perform OCR
+                page_text = pytesseract.image_to_string(image, lang='eng')
+                if page_text and page_text.strip():
+                    ocr_text += f"Page {page_num + 1}:\n{page_text}\n\n"
+            
+            pdf_document.close()
+            
+            if ocr_text.strip():
+                extracted_text = ocr_text.strip()
+                logger.info(f"Successfully extracted text using OCR ({len(extracted_text)} characters)")
+        except (ImportError, pkg_resources.DistributionNotFound) as e:
+            logger.warning(f"OCR libraries not installed: {e}")
+        except Exception as e:
+            logger.warning(f"OCR extraction failed: {e}")
+    
+    # If no text could be extracted
+    if not extracted_text:
+        message = f"PDF file detected ({len(pdf_data)} bytes) - No text could be extracted.\n"
+        message += "To enable text extraction, install one of:\n"
+        message += "- PyPDF2 (for searchable PDFs)\n"
+        message += "- pdfplumber (for better text extraction)\n"
+        message += "- PyMuPDF, pytesseract, and Pillow (for OCR support)"
+        return message
+    
+    return extracted_text
 
 @app.get("/api/debug")
 async def get_debug_info():
@@ -1677,10 +1850,368 @@ async def debug_blob_folder(folder_name: str):
         logger.error(f"Blob debug error: {str(e)}")
         return {"status": "error", "message": str(e)}
 
+async def get_all_emails_from_azure_blob_storage():
+    """
+    Get ALL emails directly from Azure Blob Storage.
+    This is the REAL source of historical emails.
+    """
+    try:
+        from azure.storage.blob import BlobServiceClient
+        import json
+
+        if not azure_config.get("connection_string"):
+            logger.error("Azure not configured")
+            return []
+
+        blob_service_client = BlobServiceClient.from_connection_string(azure_config["connection_string"])
+        container_client = blob_service_client.get_container_client(azure_config["container_name"])
+
+        all_emails = []
+
+        # List all blobs that contain email metadata
+        logger.info("Scanning Azure Blob Storage for all emails...")
+        for blob in container_client.list_blobs():
+            # Look for metadata files that contain email information
+            if blob.name.endswith("metadata.json") and "email_" in blob.name:
+                try:
+                    # Download and parse the metadata
+                    blob_client = blob_service_client.get_blob_client(
+                        container=azure_config["container_name"],
+                        blob=blob.name
+                    )
+
+                    metadata_content = blob_client.download_blob().readall()
+                    metadata = json.loads(metadata_content.decode('utf-8'))
+
+                    # Extract email information from metadata
+                    email_info = {
+                        "id": metadata.get("email_id", blob.name.split("/")[0]),
+                        "subject": metadata.get("subject", "No Subject"),
+                        "from": metadata.get("from", "Unknown"),
+                        "to": metadata.get("to", ""),
+                        "date": metadata.get("date", ""),
+                        "document_type": metadata.get("document_type", "Unclassified"),
+                        "classification_confidence": metadata.get("classification_confidence", 0),
+                        "attachments_count": len(metadata.get("attachments", [])),
+                        "email_blob_url": f"https://{azure_config['storage_account']}.blob.core.windows.net/{azure_config['container_name']}/{blob.name.replace('metadata.json', 'original_email.eml')}",
+                        "processed_at": str(blob.last_modified),
+                        "source": "azure_blob_storage"
+                    }
+
+                    all_emails.append(email_info)
+
+                except Exception as e:
+                    logger.warning(f"Could not parse metadata from {blob.name}: {str(e)}")
+                    continue
+
+        # Sort by date (newest first)
+        all_emails.sort(key=lambda x: x.get("date", ""), reverse=True)
+
+        logger.info(f"Found {len(all_emails)} emails in Azure Blob Storage")
+        return all_emails
+
+    except Exception as e:
+        logger.error(f"Error retrieving emails from Azure Blob Storage: {str(e)}")
+        return []
+
+@app.get("/api/current-session-emails")
+async def get_current_session_emails(
+    sender: Optional[str] = None,
+    subject: Optional[str] = None,
+    category: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """
+    Get emails processed in the current session with optional filtering.
+    
+    Args:
+        sender: Filter by email sender
+        subject: Filter by email subject (partial match)
+        category: Filter by document category
+        start_date: Filter emails after this date (YYYY-MM-DD)
+        end_date: Filter emails before this date (YYYY-MM-DD)
+    """
+    try:
+        # Get base list of current session emails (emails processed during this visit)
+        filtered_emails = [e for e in current_session_emails if not e.get("is_deleted", False)]
+        
+        # Apply filters
+        if sender:
+            filtered_emails = [e for e in filtered_emails if sender.lower() in e.get("from", "").lower()]
+        if subject:
+            filtered_emails = [e for e in filtered_emails if subject.lower() in e.get("subject", "").lower()]
+        if category:
+            filtered_emails = [e for e in filtered_emails if e.get("document_type") == category]
+        if start_date:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            filtered_emails = [e for e in filtered_emails if datetime.strptime(e.get("date", "").split()[0], "%Y-%m-%d") >= start_dt]
+        if end_date:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            filtered_emails = [e for e in filtered_emails if datetime.strptime(e.get("date", "").split()[0], "%Y-%m-%d") <= end_dt]
+        
+        return {"success": True, "emails": filtered_emails}
+    except Exception as e:
+        logger.error(f"Error getting current session emails: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+from fastapi import Query
+
+@app.get("/api/all-historical-emails")
+async def get_all_historical_emails_from_azure():
+    """
+    Get ALL historical emails directly from Azure Blob Storage.
+    This completely ignores current session data and goes straight to the source.
+    """
+    try:
+        logger.info("Fetching ALL historical emails from Azure Blob Storage...")
+
+        # Get emails directly from Azure Blob Storage
+        historical_emails = await get_all_emails_from_azure_blob_storage()
+
+        if not historical_emails:
+            return {
+                "success": True,
+                "emails": [],
+                "total": 0,
+                "message": "No historical emails found in Azure Blob Storage"
+            }
+
+        logger.info(f"Successfully retrieved {len(historical_emails)} historical emails from Azure")
+
+        return {
+            "success": True,
+            "emails": historical_emails,  # ALL emails, no limit!
+            "total": len(historical_emails),
+            "source": "azure_blob_storage"
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving historical emails from Azure: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "emails": [],
+            "total": 0
+        }
+
 @app.get("/api/processed-emails")
-async def get_processed_emails():
-    """Get list of processed emails."""
-    return {"emails": processed_emails}
+async def get_processed_emails(
+    status: str = Query(None, description="Filter by read/unread status"),
+    sender: str = Query(None),
+    subject: str = Query(None),
+    category: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None)
+):
+    """
+    Get emails from CosmosDB with optional filtering.
+    Combines all emails from current session and database.
+    
+    Args:
+        status: Filter by read/unread status
+        sender: Filter by email sender
+        subject: Filter by email subject (partial match)
+        category: Filter by document category
+        start_date: Filter emails after this date (YYYY-MM-DD)
+        end_date: Filter emails before this date (YYYY-MM-DD)
+    """
+    try:
+        # Get emails from CosmosDB
+        endpoint = os.getenv("AZURE_COSMOS_ENDPOINT")
+        key = os.getenv("AZURE_COSMOS_KEY")
+        db_name = os.getenv("COSMOS_DB_NAME", "IngestionDB")
+        container_name = os.getenv("COSMOS_EMAILS_CONTAINER", "Emails")
+        
+        emails = []
+        
+        # Try to get emails from CosmosDB first
+        try:
+            client = CosmosClient(endpoint, key)
+            db = client.get_database_client(db_name)
+            container = db.get_container_client(container_name)
+            
+            # Build base query
+            query = "SELECT * FROM c WHERE NOT IS_DEFINED(c.is_deleted)"
+            filters = []
+            params = []
+            
+            # Add filters
+            if status == "unread":
+                filters.append("(NOT IS_DEFINED(c.read) OR c.read = false)")
+            elif status == "read":
+                filters.append("c.read = true")
+                
+            if sender:
+                filters.append("CONTAINS(LOWER(c.from), @sender)")
+                params.append({"name": "@sender", "value": sender.lower()})
+                
+            if subject:
+                filters.append("CONTAINS(LOWER(c.subject), @subject)")
+                params.append({"name": "@subject", "value": subject.lower()})
+                
+            if category:
+                filters.append("LOWER(c.document_type) = @category")
+                params.append({"name": "@category", "value": category.lower()})
+                
+            if start_date:
+                filters.append("c.date >= @start_date")
+                params.append({"name": "@start_date", "value": start_date})
+                
+            if end_date:
+                filters.append("c.date <= @end_date")
+                params.append({"name": "@end_date", "value": end_date})
+            
+            # Add filters to query
+            if filters:
+                query += " AND " + " AND ".join(filters)
+            query += " ORDER BY c.date DESC"
+            
+            # Execute query
+            items = list(container.query_items(
+                query=query,
+                parameters=params,
+                enable_cross_partition_query=True
+            ))
+            
+            # Map database emails to response format
+            for e in items:
+                emails.append({
+                    "id": e.get("id"),
+                    "subject": e.get("subject"),
+                    "from": e.get("from"),
+                    "to": e.get("to"),
+                    "date": e.get("date"),
+                    "document_type": e.get("document_type"),
+                    "classification_confidence": e.get("classification_confidence"),
+                    "attachments_count": e.get("attachments_count"),
+                    "email_blob_url": e.get("email_blob_url"),
+                    "cosmos_document_id": e.get("id"),
+                    "ingestion_processed": e.get("ingestion_processed"),
+                    "ingestion_error": e.get("ingestion_error"),
+                    "category": e.get("document_type")
+                })
+            
+        except Exception as db_error:
+            logger.error(f"Error querying CosmosDB: {str(db_error)}")
+            # Fall back to in-memory emails only
+            pass
+        
+        # Handle different status requests
+        if status == "unread":
+            # For unread: ONLY return current session emails
+            session_emails = [e for e in current_session_emails if not e.get("is_deleted", False)]
+            emails = []  # Don't include any historical emails for unread view
+        elif status == "read" or status == "all":
+            # For read/all: ONLY return historical emails (NOT current session)
+            session_emails = []  # Don't include current session emails for read view
+        else:
+            # Default: include current session emails
+            session_emails = [e for e in current_session_emails if not e.get("is_deleted", False)]
+        
+        # Apply filters to session emails
+        if sender:
+            session_emails = [e for e in session_emails if sender.lower() in (e.get("from", "") or "").lower()]
+        if subject:
+            session_emails = [e for e in session_emails if subject.lower() in (e.get("subject", "") or "").lower()]
+        if category:
+            session_emails = [e for e in session_emails if (e.get("document_type") or "").lower() == category.lower()]
+        if start_date:
+            try:
+                start = datetime.strptime(start_date, "%Y-%m-%d")
+                session_emails = [e for e in session_emails if e.get("date") and datetime.strptime(str(e["date"])[:10], "%Y-%m-%d") >= start]
+            except Exception:
+                pass
+        if end_date:
+            try:
+                end = datetime.strptime(end_date, "%Y-%m-%d")
+                session_emails = [e for e in session_emails if e.get("date") and datetime.strptime(str(e["date"])[:10], "%Y-%m-%d") <= end]
+            except Exception:
+                pass
+                
+        # Add filtered session emails (only if not in read-only mode)
+        if status != "read":
+            emails.extend([e for e in session_emails if e["id"] not in [x["id"] for x in emails]])
+
+        # For unread status, ONLY use session emails
+        if status == "unread":
+            emails = session_emails
+
+        # Sort by date descending (newest first)
+        emails.sort(key=lambda x: x.get("date", ""), reverse=True)
+        
+        return {
+            "success": True,
+            "emails": emails,  # Return ALL emails, no limit!
+            "total": len(emails)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error retrieving emails: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@app.get("/api/email-categories")
+async def get_email_categories():
+    """Get all unique document categories from processed emails."""
+    try:
+        # Only include categories from non-deleted emails
+        categories = set(
+            email.get("document_category", "Uncategorized") 
+            for email in processed_emails 
+            if not email.get("is_deleted", False)
+        )
+        return {
+            "success": True,
+            "categories": sorted(list(categories))
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving categories: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@app.delete("/api/emails/{email_id}")
+async def soft_delete_email(email_id: str):
+    """
+    Soft delete an email by marking it as deleted in memory and CosmosDB.
+    
+    Since CosmosDB doesn't support actual deletion, we:
+    1. Mark the email as deleted in memory
+    2. Add a deleted flag in CosmosDB document
+    3. Hide it from regular queries
+    """
+    try:
+        # Find email in memory
+        email_index = next((i for i, e in enumerate(processed_emails) 
+                          if e.get("id") == email_id), -1)
+        
+        if email_index == -1:
+            raise HTTPException(status_code=404, detail="Email not found")
+            
+        # Mark as deleted in memory
+        processed_emails[email_index]["is_deleted"] = True
+        processed_emails[email_index]["deleted_at"] = datetime.now().isoformat()
+        
+        # Update CosmosDB if available
+        try:
+            engine = get_ingestion_engine()
+            if engine and hasattr(engine, 'update_document_status'):
+                await engine.update_document_status(
+                    email_id,
+                    {"is_deleted": True, "deleted_at": datetime.now().isoformat()}
+                )
+        except Exception as e:
+            logger.warning(f"Could not update CosmosDB status: {str(e)}")
+        
+        return {
+            "success": True,
+            "message": "Email marked as deleted",
+            "email_id": email_id
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error deleting email: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/process/stop")
 async def stop_processing():
@@ -1689,4 +2220,4 @@ async def stop_processing():
     return {"status": "success", "message": "Processing stopped"}
 
 if __name__ == "__main__":
-    uvicorn.run("ui_app:app", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run("ui_app:app", host="127.0.0.1", port=8000, reload=True)
